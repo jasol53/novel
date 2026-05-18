@@ -519,10 +519,7 @@ window.onload = function() {
     } else {
         loadLocalBookState();
         renderChapters();
-        // 기본값: 저장된 데이터 있으면 뷰어, 없으면 작가모드
-        if (bookState.chapters.length > 0) {
-            switchViewMode('reader');
-        }
+        switchViewMode('author');
     }
     window.addEventListener('resize', () => {
         if (bookState.viewMode === 'reader') updateDynamicCoverOnResize();
@@ -900,7 +897,7 @@ function switchViewMode(mode) {
     document.getElementById('author-header').classList.toggle('hidden', mode === 'reader');
     document.getElementById('author-footer').classList.toggle('hidden', mode === 'reader');
     if (mode === 'reader') {
-        updateBookInfo();
+        // updateBookInfo 호출 금지 — input 필드 값으로 bookState 덮어씀
         buildReaderPages();
         resetMusicButtons();
         if (ytAudioPlayer && ytAudioPlayer.stopVideo) ytAudioPlayer.stopVideo();
