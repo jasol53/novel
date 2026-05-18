@@ -1390,9 +1390,17 @@ async function loadBookFromCloud(id){
     try{
         const doc=await db.collection('novels').doc(id).get();
         if(doc.exists){
-            Object.assign(bookState,doc.data());
-            loadLocalBookState();
-            updateBookInfo();renderChapters();
+            const data = doc.data();
+            bookState.title = data.title || '제목 없음';
+            bookState.author = data.author || '작가 미상';
+            bookState.description = data.description || '';
+            bookState.coverUrlWebnovel = data.coverUrlWebnovel || '';
+            bookState.coverUrlTablet = data.coverUrlTablet || '';
+            bookState.coverUrlStandard = data.coverUrlStandard || '';
+            bookState.chapters = data.chapters || [];
+            localStorage.setItem('newtokkinam_cloud_id', id);
+            updateBookInfo();
+            renderChapters();
             switchViewMode('reader');
             showToast(`"${bookState.title}" 로드 완료.`);
         }else{showToast('존재하지 않는 소설입니다.','error');}
