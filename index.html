@@ -129,7 +129,18 @@
         .prose .chat-line.chat-left { align-self:flex-start; background:var(--paper); border-radius:4px 16px 16px 16px; border:0.5px solid rgba(139,94,60,0.15); }
         .prose .chat-line.chat-right { align-self:flex-end; background:rgba(196,154,108,0.22); border-radius:16px 4px 16px 16px; border:0.5px solid rgba(196,154,108,0.35); }
         .prose .chat-sender { font-family:var(--sans) !important; font-size:0.82em !important; font-weight:700 !important; color:var(--accent) !important; text-shadow:none !important; display:inline-block; margin-right:4px; }
-        .prose .flashback-block { text-indent:0; padding:1.4em 1.2em; border-left:3px solid var(--accent2); color:var(--ink2); background:rgba(196,154,108,0.10); font-style:italic; line-height:2; white-space:pre-wrap; }
+        .prose .flashback-block { 
+            text-indent:0; 
+            padding:1.6em 1.4em; 
+            border-left:4px solid var(--accent); 
+            color:var(--ink); 
+            font-weight:500;
+            background:rgba(196,154,108,0.13); 
+            font-style:italic; 
+            line-height:2.1; 
+            border-radius:0 8px 8px 0;
+            box-shadow: inset 0 0 0 1px rgba(196,154,108,0.15);
+        }
         .prose .music-block { text-indent:0; text-align:left; padding-left:1.1em; }
         .prose .music-link { display:inline-flex; align-items:center; gap:0.55em; padding:0.8em 1.2em; border:1px solid var(--accent2); border-radius:999px; color:var(--accent); text-decoration:none; font-family:var(--sans); font-size:0.9em; background:rgba(196,154,108,0.10); cursor:pointer; transition:all 0.2s; }
         .prose .music-link:hover { background:rgba(139,94,60,0.15); }
@@ -818,6 +829,11 @@ function parseSpecialBlocks(text) {
         const clean = link.trim().replace(/"/g, '&quot;');
         return `\n<div class="music-block"><a onclick="togglePlayMusic('${clean}', this)" class="music-link"><i class="fa-solid fa-compact-disc"></i> <span>${title.trim()}</span></a></div>\n`;
     });
+    // [autoplay=링크]곡명[/autoplay] — 화 진입 시 자동재생, 버튼은 보임
+    text = text.replace(/\[autoplay=(.*?)\](.*?)\[\/autoplay\]/g, (_, link, title) => {
+        const clean = link.trim().replace(/"/g, '&quot;');
+        return `\n<div class="music-block music-autoplay"><a onclick="togglePlayMusic('${clean}', this)" class="music-link" data-autoplay="true"><i class="fa-solid fa-compact-disc"></i> <span>${title.trim()}</span></a></div>\n`;
+    });
     text = text.replace(/\[image=(.*?)\]([\s\S]*?)\[\/image\]/g, (_, link, cap) => {
         const clean = convertGoogleDriveLink(link.trim());
         return `\n<div class="illustration-block"><img src="${clean}" alt="${cap.trim()}" class="illustration-img" onerror="this.parentElement.style.display='none'"><p class="illustration-caption">${cap.trim()}</p></div>\n`;
@@ -1106,8 +1122,7 @@ function pcCommit(idx) {
         if (prog) prog.style.width = '0%';
     }
     if (!bookmarkState.isRestoring) saveBookmark(cur, 0);
-    // 화 진입 시 첫 번째 music 블록 자동재생
-    setTimeout(() => autoPlayChapterMusic(cur), 80);
+    setTimeout(() => triggerAutoplay(cur), 100);
 }
 
 /* ════════════════════════════════════════════
@@ -1124,26 +1139,17 @@ function mobCommit(idx) {
     if (tbTitle) tbTitle.textContent = TITLES[cur] || '';
     document.querySelectorAll('#mobTocContainer .toc-btn').forEach((b, i) => b.classList.toggle('active', i === cur));
     if (!bookmarkState.isRestoring) saveBookmark(cur, 0);
-    // 화 진입 시 첫 번째 music 블록 자동재생
-    setTimeout(() => autoPlayChapterMusic(cur), 80);
+    setTimeout(() => triggerAutoplay(cur), 100);
 }
 
-/* ════════════════════════════════════════════
-   AUTO PLAY CHAPTER MUSIC
-   화 진입 시 첫 번째 [music] 블록 자동재생
-   마지막 페이지 도달 / 다른 화 이동 시 자동 정지는
-   resetMusicButtons()가 pcCommit/mobCommit 앞에서 처리
-   ════════════════════════════════════════════ */
-function autoPlayChapterMusic(pageIdx) {
-    // 표지(0)는 자동재생 안 함
+function triggerAutoplay(pageIdx) {
     if (pageIdx === 0) return;
     const page = document.getElementById(`p${pageIdx}`);
     if (!page) return;
-    const firstLink = page.querySelector('.music-link');
-    if (!firstLink) return;
-    // 이미 재생 중이면 스킵
+    const autoBtn = page.querySelector('.music-link[data-autoplay="true"]');
+    if (!autoBtn) return;
     if (currentPlayingMusicId) return;
-    firstLink.click();
+    autoBtn.click();
 }
 
 function navigateToAdjacentChapter(dir) {
