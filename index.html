@@ -503,9 +503,37 @@ window.onload = function() {
     const urlParams = new URLSearchParams(window.location.search);
     const cloudBookId = urlParams.get('id');
     if (cloudBookId) {
-        // 클라우드에서 불러올 때는 로컬 상태로 덮어쓰지 않음
+        // ?id= 있으면 즉시 작가모드 숨기고 로딩 표시
+        document.getElementById('author-header').style.display = 'none';
+        document.getElementById('author-workspace').style.display = 'none';
+        document.getElementById('author-footer').style.display = 'none';
+        document.body.style.background = 'var(--bg)';
+        // 로딩 메시지
+        const loader = document.createElement('div');
+        loader.id = 'cloud-loader';
+        loader.style.cssText = 'position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:#f4f1eb;z-index:999;';
+        loader.innerHTML = `
+            <div style="width:36px;height:36px;border:3px solid #ddd5c0;border-top-color:#8b5e3c;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+            <div style="font-family:'Noto Sans KR',sans-serif;font-size:13px;color:#a89f94;">소설을 불러오는 중...</div>
+            <style>@keyframes spin{to{transform:rotate(360deg);}}</style>
+        `;
+        document.body.appendChild(loader);
         bookmarkState.activeBookId = cloudBookId;
-        setTimeout(() => loadBookFromCloud(cloudBookId), 800);
+        firebase.auth().onAuthStateChanged(user => {
+            if (user) {
+                loadBookFromCloud(cloudBookId).finally(() => {
+                    const l = document.getElementById('cloud-loader');
+                    if (l) l.remove();
+                });
+            } else {
+                setTimeout(() => {
+                    loadBookFromCloud(cloudBookId).finally(() => {
+                        const l = document.getElementById('cloud-loader');
+                        if (l) l.remove();
+                    });
+                }, 2000);
+            }
+        });
     } else {
         loadLocalBookState();
         renderChapters();
