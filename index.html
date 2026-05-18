@@ -1151,7 +1151,7 @@ function pcCommit(idx) {
         const prog = document.getElementById('page-top-scroll-progress');
         if (prog) prog.style.width = '0%';
     }
-    if (!bookmarkState.isRestoring) saveBookmark(cur, 0);
+    if (!bookmarkState.isRestoring && cur > 0) saveBookmark(cur, 0);
     setTimeout(() => triggerAutoplay(cur), 100);
 }
 
@@ -1168,7 +1168,7 @@ function mobCommit(idx) {
     const tbTitle = document.getElementById('tbTitle');
     if (tbTitle) tbTitle.textContent = TITLES[cur] || '';
     document.querySelectorAll('#mobTocContainer .toc-btn').forEach((b, i) => b.classList.toggle('active', i === cur));
-    if (!bookmarkState.isRestoring) saveBookmark(cur, 0);
+    if (!bookmarkState.isRestoring && cur > 0) saveBookmark(cur, 0);
     setTimeout(() => triggerAutoplay(cur), 100);
 }
 
@@ -1313,7 +1313,7 @@ function handleReaderScroll(pageIdx, sc) {
         showToast('배경음악을 자동 정지합니다.','info');
     }
 
-    if(pageIdx===0){saveBookmark(0,0);return;}
+    if(pageIdx===0){return;}
 
     // 음악 자동 재생
     sc.querySelectorAll('.music-block').forEach(block=>{
@@ -1367,7 +1367,7 @@ function checkAndTriggerBookmark(){
 function closeBookmarkModal(restore){
     document.getElementById('modal-bookmark').classList.add('hidden');
     if(restore){restoreReadingPosition(bookmarkState.savedPageIndex,bookmarkState.savedParagraphIndex);}
-    else{saveBookmark(0,0);IS_MOBILE?mobCommit(0):pcCommit(0);}
+    else{IS_MOBILE?mobCommit(0):pcCommit(0);}
 }
 
 function restoreReadingPosition(pageIdx,paraIdx){
