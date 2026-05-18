@@ -1,0 +1,1479 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>뉴토끼남 - 나만의 내러티브 E-Book</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;500;700&family=Noto+Sans+KR:wght@300;400;500;700&family=Song+Myung&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg: #e8e0d0; --paper: #fdfaf3; --paper-back: #ede5d0;
+            --ink: #1e1b17; --ink2: #6b6259; --ink3: #a89f94;
+            --accent: #8b5e3c; --accent2: #c49a6c; --border: #ddd5c0;
+            --serif: 'Noto Serif KR', 'Song Myung', serif;
+            --sans: 'Noto Sans KR', sans-serif;
+        }
+        body.reader-active { width:100%; height:100%; overflow:hidden !important; }
+        .topbar { flex-shrink:0; height:48px; background:var(--paper); border-bottom:0.5px solid var(--border); display:flex; align-items:center; justify-content:space-between; padding:0 16px; z-index:50; transition:background 0.3s,border-color 0.3s; position:relative; }
+        #page-top-scroll-progress { position:absolute; bottom:0; left:0; height:2px; background-color:var(--accent); width:0%; transition:width 0.1s ease-out; z-index:60; }
+        .tb-btn { background:none; border:none; cursor:pointer; color:var(--ink2); width:36px; height:36px; border-radius:8px; font-size:18px; display:flex; align-items:center; justify-content:center; transition:background 0.15s,color 0.15s; font-family:var(--sans); }
+        .tb-btn:hover { background:var(--border); color:var(--accent); }
+        .tb-title { font-family:var(--sans); font-size:13px; font-weight:500; color:var(--ink2); flex:1; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 8px; }
+        .volume-control-wrap { display:flex; align-items:center; gap:6px; padding:0 8px; color:var(--ink2); }
+        .volume-slider { -webkit-appearance:none; appearance:none; width:60px; height:4px; background:var(--border); border-radius:2px; outline:none; cursor:pointer; }
+        .volume-slider::-webkit-slider-thumb { -webkit-appearance:none; width:10px; height:10px; border-radius:50%; background:var(--accent); cursor:pointer; }
+        @media(max-width:640px){ .volume-slider{width:40px;} }
+        .body-row { flex:1; display:flex; overflow:hidden; position:relative; }
+        .sidebar { width:220px; flex-shrink:0; background:var(--paper); border-right:0.5px solid var(--border); display:flex; flex-direction:column; overflow:hidden; transition:width 0.28s ease,opacity 0.28s ease,background 0.3s,border-color 0.3s; }
+        .sidebar.collapsed { width:0; opacity:0; pointer-events:none; }
+        .sidebar-inner { width:220px; display:flex; flex-direction:column; height:100%; }
+        .sb-info { padding:22px 20px 18px; border-bottom:0.5px solid var(--border); }
+        .sb-book-title { font-size:14px; font-weight:700; line-height:1.4; margin-bottom:3px; font-family:var(--serif); color:var(--ink); }
+        .sb-book-author { font-family:var(--sans); font-size:11px; color:var(--ink3); }
+        .sb-section { font-family:var(--sans); font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--ink3); padding:14px 20px 6px; }
+        .sb-prog-track { height:3px; background:var(--border); border-radius:2px; margin:0 20px; overflow:hidden; }
+        .sb-prog-fill { height:100%; background:var(--accent); border-radius:2px; transition:width 0.15s; }
+        .sb-prog-text { font-family:var(--sans); font-size:11px; color:var(--ink3); margin:5px 20px 0; }
+        .sb-divider { height:0.5px; background:var(--border); margin:10px 0; }
+        .sb-toc { flex:1; overflow-y:auto; padding-bottom:8px; }
+        .toc-btn { display:block; width:100%; background:none; border:none; cursor:pointer; text-align:left; padding:9px 20px; border-left:2.5px solid transparent; transition:all 0.14s; line-height:1.5; }
+        .toc-btn:hover { background:var(--border); }
+        .toc-btn.active { border-left-color:var(--accent); }
+        .toc-name { font-family:var(--serif); font-size:13px; color:var(--ink2); display:block; }
+        .toc-btn.active .toc-name { color:var(--accent); font-weight:500; }
+        .toc-sub { font-family:var(--sans); font-size:11px; color:var(--ink3); display:block; margin-top:1px; }
+        .sb-font-row { padding:11px 20px; border-top:0.5px solid var(--border); display:flex; align-items:center; gap:8px; flex-shrink:0; }
+        .sb-font-label { font-family:var(--sans); font-size:11px; color:var(--ink3); flex:1; }
+        .font-btn { background:none; border:0.5px solid var(--border); border-radius:6px; width:28px; height:28px; cursor:pointer; color:var(--ink2); font-family:var(--sans); font-size:13px; display:flex; align-items:center; justify-content:center; transition:all 0.12s; }
+        .font-btn:hover { border-color:var(--accent); color:var(--accent); }
+        .font-val { font-family:var(--sans); font-size:12px; color:var(--ink); min-width:20px; text-align:center; }
+        .stage { flex:1; position:relative; overflow:hidden; background:var(--bg); }
+        .book-page { position:absolute; inset:0; background:var(--paper); overflow:hidden; }
+        .page-scroll { width:100%; height:100%; overflow-y:auto; overflow-x:hidden; padding:32px 28px 88px; -webkit-overflow-scrolling:touch; }
+        .pc-bottom { flex-shrink:0; height:52px; background:var(--paper); border-top:0.5px solid var(--border); display:flex; align-items:center; justify-content:space-between; padding:0 20px; }
+        .nav-btn { background:none; border:0.5px solid var(--border); border-radius:8px; cursor:pointer; font-family:var(--sans); font-size:13px; color:var(--ink2); padding:8px 16px; transition:all 0.15s; display:flex; align-items:center; gap:6px; }
+        .nav-btn:hover { border-color:var(--accent); color:var(--accent); }
+        .nav-btn:disabled { opacity:0.22; pointer-events:none; }
+        .pc-dots { display:flex; gap:7px; align-items:center; }
+        .pc-dot { width:7px; height:7px; border-radius:50%; background:var(--border); border:none; cursor:pointer; padding:0; transition:all 0.2s; }
+        .pc-dot.active { background:var(--accent); transform:scale(1.3); }
+        .mob-bottom { flex-shrink:0; height:52px; background:var(--paper); border-top:0.5px solid var(--border); display:flex; align-items:center; justify-content:space-between; padding:0 20px; }
+        .mob-nav { background:none; border:0.5px solid var(--border); border-radius:8px; cursor:pointer; font-family:var(--sans); font-size:13px; color:var(--ink2); padding:8px 14px; transition:all 0.15s; }
+        .mob-nav:disabled { opacity:0.22; pointer-events:none; }
+        .mob-dots { display:flex; gap:7px; align-items:center; }
+        .mob-dot { width:7px; height:7px; border-radius:50%; background:var(--border); border:none; cursor:pointer; padding:0; transition:all 0.2s; }
+        .mob-dot.active { background:var(--accent); transform:scale(1.3); }
+        .menu-overlay { position:fixed; inset:0; z-index:100; background:rgba(0,0,0,0.48); display:none; align-items:flex-end; }
+        .menu-overlay.open { display:flex; }
+        .menu-sheet { width:100%; background:var(--paper); border-radius:20px 20px 0 0; padding:18px 0 36px; }
+        .menu-handle { width:36px; height:4px; background:var(--border); border-radius:2px; margin:0 auto 20px; }
+        .menu-section { font-family:var(--sans); font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink3); padding:0 24px; margin-bottom:10px; }
+        .menu-item { display:block; width:100%; background:none; border:none; cursor:pointer; text-align:left; font-family:var(--serif); font-size:15px; color:var(--ink2); padding:12px 24px; transition:background 0.12s; }
+        .menu-item:hover,.menu-item:active { background:var(--border); }
+        .menu-item.active { color:var(--accent); font-weight:500; }
+        .menu-sep { height:0.5px; background:var(--border); margin:8px 0; }
+        .menu-font-row { display:flex; align-items:center; gap:12px; padding:10px 24px; }
+        .mfc-btn { background:none; border:0.5px solid var(--border); border-radius:8px; width:34px; height:34px; cursor:pointer; color:var(--ink2); font-family:var(--sans); font-size:15px; display:flex; align-items:center; justify-content:center; }
+        .mfc-val { font-family:var(--sans); font-size:13px; color:var(--ink); min-width:24px; text-align:center; }
+        .cover-inner { display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:60px 40px; min-height:100%; }
+        .cover-ornament { font-size:42px; color:var(--accent2); letter-spacing:6px; margin-bottom:40px; opacity:0.7; }
+        .cover-title { font-size:42px; font-weight:700; line-height:1.3; margin-bottom:24px; font-family:var(--serif); color:var(--ink); }
+        .cover-sub { font-size:15px; color:var(--ink2); font-weight:400; margin-bottom:48px; letter-spacing:0.02em; line-height:1.8; font-family:var(--serif); max-width:420px; white-space:pre-wrap; }
+        .cover-divider { width:60px; height:1.5px; background:var(--accent2); margin:0 auto 32px; }
+        .cover-author { font-family:var(--sans); font-size:15px; color:var(--ink2); letter-spacing:0.08em; }
+        .cover-art-wrapper { border-radius:16px; overflow:hidden; box-shadow:0 20px 40px -10px rgba(0,0,0,0.25),0 12px 20px -8px rgba(0,0,0,0.2); border:6px solid var(--paper); outline:1px solid var(--border); position:relative; background:var(--paper-back); margin-bottom:40px; transition:all 0.4s ease; }
+        .cover-art-img { width:100%; height:100%; object-fit:cover; transition:transform 0.6s ease; }
+        .cover-art-wrapper:hover { transform:translateY(-5px); }
+        .cover-art-wrapper:hover .cover-art-img { transform:scale(1.05); }
+        .cover-ratio-webnovel { width:320px; height:512px; }
+        .cover-ratio-tablet { width:360px; height:480px; }
+        .cover-ratio-standard { width:340px; height:480px; }
+        @media(max-width:640px){
+            .cover-ratio-webnovel{width:240px;height:384px;}
+            .cover-ratio-tablet{width:260px;height:346px;}
+            .cover-ratio-standard{width:250px;height:353px;}
+            .cover-title{font-size:32px;}
+        }
+        .swipe-hint { margin-top:40px; font-family:var(--sans); font-size:11px; color:var(--ink3); letter-spacing:0.06em; animation:pulse 2s ease-in-out infinite; }
+        @keyframes pulse{0%,100%{opacity:0.3;}50%{opacity:1;}}
+        .ch-header { text-align:center; margin-bottom:40px; padding-bottom:32px; border-bottom:0.5px solid var(--border); }
+        .ch-number { font-family:var(--sans); font-size:10px; letter-spacing:0.18em; text-transform:uppercase; color:var(--accent); margin-bottom:14px; }
+        .ch-title { font-size:22px; font-weight:700; line-height:1.35; margin-bottom:10px; font-family:var(--serif); color:var(--ink); }
+        .ch-dot { margin-top:18px; color:var(--accent2); font-size:16px; letter-spacing:8px; }
+        .prose { font-size:16px; line-height:2.05; color:var(--ink); word-break:keep-all; font-family:var(--serif); transition:font-size 0.2s; }
+        .prose p { margin-bottom:1.5em; text-indent:1em; text-align:justify; }
+        .prose p:first-child { text-indent:0; }
+        .prose .scene-asterisk { text-align:left; text-indent:1em; color:var(--accent); font-size:14px; letter-spacing:8px; margin:2.2em 0; font-family:var(--serif); }
+        .prose .scene-dots { display:flex !important; flex-direction:column !important; align-items:center !important; width:20px !important; margin:3.2em 0 3.2em 1.1em !important; gap:6px !important; color:var(--accent) !important; font-weight:bold !important; text-indent:0 !important; padding:0 !important; }
+        .prose .scene-long-line { margin:2.2em 0; padding-left:1em; width:70%; max-width:500px; height:1px; background:linear-gradient(to right,var(--accent),transparent); opacity:0.5; }
+        .prose .scene-double-line { margin:2.2em 0; padding-left:1em; width:70%; max-width:500px; display:flex; flex-direction:column; gap:3px; opacity:0.5; }
+        .prose .scene-double-line::before,.prose .scene-double-line::after { content:''; height:1px; background:linear-gradient(to right,var(--accent),transparent); }
+        .prose p.drop::first-letter { float:left; font-size:4em; line-height:0.78; margin:0.05em 0.06em 0 0; color:var(--accent); font-weight:700; }
+        .prose .prose-empty-line { height:1.5em; margin:0; text-indent:0; }
+        .prose blockquote { margin:1.8em 0; padding:16px 20px; border-left:2.5px solid var(--accent); font-style:italic; color:var(--ink2); background:rgba(0,0,0,0.02); border-radius:4px; }
+        .prose blockquote p { text-indent:0; margin:0; }
+        .prose .ending { text-align:center; color:var(--ink3); font-size:14px; margin-top:40px; text-indent:0; }
+        .page-foot { margin-top:48px; padding-top:16px; border-top:0.5px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+        .pf-side { font-family:var(--sans); font-size:11px; color:var(--ink3); }
+        .pf-num { font-family:var(--sans); font-size:13px; color:var(--ink2); font-weight:500; }
+        .prose b,.prose strong { font-weight:700; color:var(--ink); font-size:1.05em; }
+        .prose .lyrics-block { text-align:center; text-indent:0; color:var(--ink2); font-style:italic; line-height:2.1; padding:1.4em 1em; border-top:1px solid var(--border); border-bottom:1px solid var(--border); white-space:pre-wrap; }
+        .prose .lyrics-block::before { content:'♪'; display:block; color:var(--accent); font-style:normal; margin-bottom:0.8em; }
+        .prose .chat-block { text-indent:0; display:flex; flex-direction:column; gap:0.9em; font-family:var(--sans); background:rgba(139,94,60,0.04); border:1px solid rgba(139,94,60,0.12); padding:20px; border-radius:20px; max-width:min(540px,100%); margin:2.4em auto !important; }
+        .prose .chat-line { max-width:82%; padding:0.8em 1em; color:var(--ink); line-height:1.6; white-space:pre-wrap; font-size:0.92em; }
+        .prose .chat-line.chat-left { align-self:flex-start; background:var(--paper); border-radius:4px 16px 16px 16px; border:0.5px solid rgba(139,94,60,0.15); }
+        .prose .chat-line.chat-right { align-self:flex-end; background:rgba(196,154,108,0.22); border-radius:16px 4px 16px 16px; border:0.5px solid rgba(196,154,108,0.35); }
+        .prose .chat-sender { font-family:var(--sans) !important; font-size:0.82em !important; font-weight:700 !important; color:var(--accent) !important; text-shadow:none !important; display:inline-block; margin-right:4px; }
+        .prose .flashback-block { text-indent:0; padding:1.4em 1.2em; border-left:3px solid var(--accent2); color:var(--ink2); background:rgba(196,154,108,0.10); font-style:italic; line-height:2; white-space:pre-wrap; }
+        .prose .music-block { text-indent:0; text-align:left; padding-left:1.1em; }
+        .prose .music-link { display:inline-flex; align-items:center; gap:0.55em; padding:0.8em 1.2em; border:1px solid var(--accent2); border-radius:999px; color:var(--accent); text-decoration:none; font-family:var(--sans); font-size:0.9em; background:rgba(196,154,108,0.10); cursor:pointer; transition:all 0.2s; }
+        .prose .music-link:hover { background:rgba(139,94,60,0.15); }
+        .prose .music-link.playing { background:rgba(139,94,60,0.25); border-color:var(--accent); }
+        .prose .transition-block { position:relative; text-indent:0; margin:3.5em 0; padding:2.4em 2em; font-family:var(--serif); font-size:0.96em; letter-spacing:0.04em; color:var(--ink); border-radius:18px; overflow:hidden; line-height:2.1; }
+        .prose .transition-block::before { content:''; position:absolute; inset:0; background:radial-gradient(circle at 25% 50%,rgba(196,154,108,0.24),transparent 65%),linear-gradient(90deg,transparent 5%,rgba(139,94,60,0.12) 25%,transparent 75%); z-index:0; }
+        .prose .transition-block span { position:relative; z-index:1; white-space:pre-wrap; }
+        .prose .illustration-block { text-indent:0; text-align:center; margin:2.8em auto !important; max-width:min(540px,100%); padding:8px; background:var(--paper-back); border:1px solid var(--border); border-radius:16px; }
+        .prose .illustration-img { width:100%; height:auto; border-radius:10px; object-fit:cover; }
+        .prose .illustration-caption { font-family:var(--sans); font-size:0.82em; color:var(--ink2); margin-top:8px !important; text-align:center; }
+        .prose .chapter-end-marker { text-align:center; text-indent:0 !important; font-family:var(--serif); font-size:0.9em; color:var(--ink2); letter-spacing:0.15em; max-width:min(540px,100%); margin:4.5em auto 2em auto !important; padding-top:2.2em; border-top:1px dashed var(--border); font-weight:500; }
+        .tb-center-progress { flex:1; min-width:0; padding:0 8px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; }
+        .tb-center-progress .tb-title { width:100%; flex:initial; padding:0; line-height:1.1; }
+        .reader-progress-track { width:min(360px,60vw); height:4px; background:var(--border); border-radius:999px; overflow:hidden; }
+        .reader-progress-fill { height:100%; width:0%; background:var(--accent); border-radius:999px; transition:width 0.08s linear; }
+        .reader-progress-label { font-family:var(--sans); font-size:10px; line-height:1; color:var(--ink3); }
+        .bookmark-anchor-highlight { animation:bookmarkAnchorPulse 1.8s ease-out 1; border-radius:8px; }
+        @keyframes bookmarkAnchorPulse{0%{background:rgba(196,154,108,0.30);}100%{background:transparent;}}
+        @media(max-width:640px){ .reader-progress-track{width:min(220px,50vw);} }
+        ::-webkit-scrollbar{width:6px;height:6px;}
+        ::-webkit-scrollbar-track{background:transparent;}
+        ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+        ::-webkit-scrollbar-thumb:hover{background:var(--ink3);}
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen transition-colors duration-300">
+
+<div id="app" class="flex flex-col min-h-screen">
+    
+    <header id="author-header" class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="goHome()">
+                <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md shadow-indigo-200">
+                    <i class="fa-solid fa-rabbit text-lg"></i>
+                </div>
+                <div>
+                    <span class="font-bold text-slate-800 text-lg block leading-none">뉴토끼남</span>
+                    <span class="text-xs text-slate-400 font-medium">나만의 실시간 E-Book 메이커</span>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2 bg-slate-100 p-1 rounded-xl">
+                <button id="btn-mode-author" onclick="switchViewMode('author')" class="px-4 py-1.5 rounded-lg text-sm font-semibold transition-all duration-200 bg-white text-indigo-600 shadow-sm">
+                    <i class="fa-solid fa-pen-nib mr-1.5"></i>작가 모드
+                </button>
+                <button id="btn-mode-reader" onclick="switchViewMode('reader')" class="px-4 py-1.5 rounded-lg text-sm font-semibold transition-all duration-200 text-slate-500 hover:text-slate-800">
+                    <i class="fa-solid fa-book-open-reader mr-1.5"></i>독자 뷰어
+                </button>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button onclick="openConfigModal()" class="w-10 h-10 rounded-xl hover:bg-slate-100 flex items-center justify-center text-slate-500 transition-all border border-slate-200">
+                    <i class="fa-solid fa-gear text-lg"></i>
+                </button>
+                <div id="db-status-badge" class="flex items-center px-3 py-1.5 bg-amber-50 text-amber-700 text-xs font-semibold rounded-lg border border-amber-200">
+                    <span class="w-2 h-2 bg-amber-500 rounded-full mr-2 animate-pulse"></span>연결 중...
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main id="author-workspace" class="flex-1 max-w-7xl w-full mx-auto px-4 py-6 flex flex-col md:flex-row gap-6">
+        <div class="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4">
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                <h3 class="font-bold text-slate-800 mb-4 flex items-center">
+                    <i class="fa-solid fa-circle-info text-indigo-500 mr-2"></i>책 기본정보 설정
+                </h3>
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-xs font-bold text-slate-400 block mb-1">도서 제목</label>
+                        <input type="text" id="input-book-title" value="나의 첫 번째 이야기책" oninput="updateBookInfo()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-slate-400 block mb-1">작가명</label>
+                        <input type="text" id="input-book-author" value="무명작가" oninput="updateBookInfo()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-slate-400 block mb-1">작품 설명 (표지 시놉시스)</label>
+                        <textarea id="input-book-description" placeholder="표지에 표시될 작품 소개" oninput="updateBookInfo()" class="w-full h-24 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none leading-normal"></textarea>
+                    </div>
+                    <div class="border-t border-slate-100 pt-3">
+                        <span class="text-xs font-bold text-indigo-600 block mb-2"><i class="fa-solid fa-image mr-1"></i>기기 최적화 표지 등록</span>
+                        <div class="space-y-2.5">
+                            <div>
+                                <label class="text-[10px] font-bold text-slate-400 block mb-0.5">① 웹소설 규격 (1:1.6 / 모바일)</label>
+                                <input type="url" id="input-book-cover-webnovel" placeholder="이미지 URL" oninput="updateBookInfo()" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-bold text-slate-400 block mb-0.5">② 태블릿 규격 (3:4)</label>
+                                <input type="url" id="input-book-cover-tablet" placeholder="이미지 URL" oninput="updateBookInfo()" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-bold text-slate-400 block mb-0.5">③ 단행본 규격 (1:1.414 / 데스크톱)</label>
+                                <input type="url" id="input-book-cover-standard" placeholder="이미지 URL" oninput="updateBookInfo()" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex-1 flex flex-col min-h-[350px]">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-slate-800 flex items-center">
+                        <i class="fa-solid fa-list-ol text-indigo-500 mr-2"></i>수록된 회차 목차
+                    </h3>
+                    <span id="chapter-count" class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md text-xs font-bold">0화</span>
+                </div>
+                <div id="author-chapter-list" class="flex-1 overflow-y-auto space-y-2 max-h-[300px] pr-1">
+                    <div class="text-center py-10 text-slate-400 text-sm">
+                        <i class="fa-solid fa-box-open text-3xl mb-2 block"></i>
+                        등록된 회차가 없습니다.
+                    </div>
+                </div>
+                <button onclick="saveToCloud()" class="w-full mt-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold text-sm shadow-md shadow-indigo-100 flex items-center justify-center transition-all">
+                    <i class="fa-solid fa-cloud-arrow-up mr-2"></i>클라우드 저장 및 공유하기
+                </button>
+            </div>
+        </div>
+
+        <div class="flex-1 flex flex-col gap-4">
+            <div id="drop-zone" class="border-2 border-dashed border-indigo-200 bg-indigo-50/30 hover:bg-indigo-50/70 rounded-2xl p-6 text-center cursor-pointer transition-all">
+                <input type="file" id="file-uploader" class="hidden" accept=".txt">
+                <div class="flex flex-col items-center justify-center" onclick="document.getElementById('file-uploader').click()">
+                    <i class="fa-solid fa-file-arrow-up text-indigo-500 text-3xl mb-2"></i>
+                    <h4 class="font-semibold text-slate-700 text-sm">TXT 원고를 여기에 넣어주세요</h4>
+                </div>
+            </div>
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col flex-1">
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4">
+                    <div class="flex-1">
+                        <input type="text" id="edit-chapter-title" placeholder="회차 제목을 입력하세요" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-semibold">
+                    </div>
+                    <div class="flex items-end gap-2">
+                        <button id="btn-cancel-edit" onclick="resetEditor()" class="hidden h-10 px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-sm font-semibold flex items-center justify-center transition-all font-sans">새 회차 작성 (수정 취소)</button>
+                        <button id="btn-submit-chapter" onclick="addOrUpdateChapter()" class="w-full sm:w-auto h-10 px-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold flex items-center justify-center transition-all shadow-sm font-sans">이 회차를 등록</button>
+                    </div>
+                </div>
+                <div class="flex-1 flex flex-col min-h-[300px]">
+                    <textarea id="edit-chapter-content" placeholder="이곳에 소설 본문을 작성하거나 붙여넣으세요." class="w-full flex-1 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-700 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-serif resize-none leading-relaxed"></textarea>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 독자 뷰어 -->
+    <div id="reader-workspace" class="hidden fixed inset-0 flex flex-col z-50 font-sans" style="background:var(--bg);color:var(--ink);">
+        <div class="topbar">
+            <button class="tb-btn" id="tbLeft"><i class="fa-solid fa-bars"></i></button>
+            <div class="tb-center-progress">
+                <span id="tbTitle" class="tb-title text-center block font-sans">뉴토끼남 뷰어</span>
+                <div class="reader-progress-track">
+                    <div id="reader-top-progress-fill" class="reader-progress-fill"></div>
+                </div>
+                <span id="reader-top-progress-label" class="reader-progress-label">0%</span>
+            </div>
+            <div class="flex items-center space-x-1">
+                <div class="volume-control-wrap">
+                    <i class="fa-solid fa-volume-low text-xs cursor-pointer" id="volume-icon" onclick="toggleMute()"></i>
+                    <input type="range" id="volume-slider" class="volume-slider" min="0" max="100" value="15" oninput="changeVolume(this.value)">
+                    <button id="master-play-pause-btn" class="w-6 h-6 rounded hover:bg-amber-100 flex items-center justify-center text-xs ml-1" onclick="toggleMasterPlayPause()">
+                        <i class="fa-solid fa-play"></i>
+                    </button>
+                </div>
+                <button class="tb-btn" id="tbRight" style="font-size:14px;"><i class="fa-solid fa-font"></i></button>
+                <button class="tb-btn" onclick="switchViewMode('author')" style="font-size:13px;width:auto;padding:0 8px;font-weight:600;"><i class="fa-solid fa-pen-nib mr-1"></i>작가 모드로</button>
+            </div>
+            <div id="page-top-scroll-progress"></div>
+        </div>
+
+        <div class="body-row">
+            <nav class="sidebar" id="sidebar">
+                <div class="sidebar-inner">
+                    <div class="sb-info">
+                        <div class="sb-book-title" id="sb-book-title-el">제목</div>
+                        <div class="sb-book-author" id="sb-book-author-el">작가 지음</div>
+                    </div>
+                    <div class="sb-section">진행</div>
+                    <div class="sb-prog-track"><div class="sb-prog-fill" id="sbFill" style="width:0%"></div></div>
+                    <div class="sb-prog-text" id="sbText">표지</div>
+                    <div class="sb-divider"></div>
+                    <div class="sb-section">목차</div>
+                    <div class="sb-toc" id="sbToc"></div>
+                    <div class="sb-font-row">
+                        <span class="sb-font-label font-sans">글자 크기</span>
+                        <button class="font-btn" id="pcFontDown">A-</button>
+                        <span class="font-val" id="pcFontVal">16</span>
+                        <button class="font-btn" id="pcFontUp">A+</button>
+                    </div>
+                </div>
+            </nav>
+
+            <div class="stage" id="stage">
+                <canvas id="flipCanvas" style="position:absolute;inset:0;width:100%;height:100%;z-index:40;display:none;touch-action:none;"></canvas>
+            </div>
+        </div>
+
+        <div class="pc-bottom" id="pcBottom">
+            <button class="nav-btn" id="pcPrev" onclick="navigateToAdjacentChapter(-1)" disabled><i class="fa-solid fa-chevron-left"></i> 이전화</button>
+            <div class="pc-dots" id="pcDots"></div>
+            <button class="nav-btn" id="pcNext" onclick="navigateToAdjacentChapter(1)">다음화 <i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+
+        <div class="mob-bottom" id="mobBottom" style="display:none;">
+            <button class="mob-nav" id="mobPrev" onclick="navigateToAdjacentChapter(-1)" disabled>← 이전화</button>
+            <div class="mob-dots" id="mobDots"></div>
+            <button class="mob-nav" id="mobNext" onclick="navigateToAdjacentChapter(1)">다음화 →</button>
+        </div>
+
+        <div class="menu-overlay" id="menuOverlay">
+            <div class="menu-sheet">
+                <div class="menu-handle"></div>
+                <div class="menu-section">목차</div>
+                <div id="mobTocContainer" class="max-h-[250px] overflow-y-auto"></div>
+                <div class="menu-sep"></div>
+                <div class="menu-font-row">
+                    <label style="font-family:var(--sans);font-size:13px;color:var(--ink2);flex:1;">글자 크기</label>
+                    <button class="mfc-btn" id="mobFontDown">A-</button>
+                    <span class="mfc-val" id="mobFontVal">16</span>
+                    <button class="mfc-btn" id="mobFontUp">A+</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer id="author-footer" class="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-400">
+        <p>© 2026 뉴토끼남 E-Book Platform. All rights reserved.</p>
+    </footer>
+</div>
+
+<!-- 커스텀 삭제 확인 모달 -->
+<div id="modal-confirm-delete" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl text-center">
+        <div class="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fa-solid fa-trash-can text-2xl"></i>
+        </div>
+        <h3 class="font-bold text-slate-800 text-lg mb-1">정말 삭제하시겠습니까?</h3>
+        <p class="text-xs text-slate-400 mb-5">삭제된 원고는 복구할 수 없습니다.</p>
+        <div class="flex gap-2">
+            <button onclick="closeDeleteModal(false)" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm">취소</button>
+            <button onclick="closeDeleteModal(true)" class="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-sm">삭제</button>
+        </div>
+    </div>
+</div>
+
+<!-- 이어읽기 복원 모달 -->
+<div id="modal-bookmark" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl text-center">
+        <div class="w-16 h-16 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fa-solid fa-bookmark text-2xl"></i>
+        </div>
+        <h3 class="font-bold text-slate-800 text-lg mb-1">읽던 지점이 있습니다</h3>
+        <p id="bookmark-info-text" class="text-xs text-slate-400 mb-5 leading-relaxed">이전에 읽던 지점부터 이어서 보시겠습니까?</p>
+        <div class="flex gap-2">
+            <button onclick="closeBookmarkModal(false)" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm">처음부터</button>
+            <button onclick="closeBookmarkModal(true)" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm">이어서 읽기</button>
+        </div>
+    </div>
+</div>
+
+<!-- Firebase 설정 모달 -->
+<div id="modal-config" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl flex flex-col max-h-[90vh]">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <h3 class="font-bold text-slate-800 text-lg">클라우드 DB 설정</h3>
+            <button onclick="closeConfigModal()" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400"><i class="fa-solid fa-xmark text-lg"></i></button>
+        </div>
+        <div class="py-4 text-sm text-slate-600">
+            <p class="mb-3 text-xs text-slate-400">현재 뉴토끼남 Firebase 프로젝트에 연결되어 있습니다.</p>
+            <div>
+                <label class="text-xs font-bold text-slate-400 block mb-1">Firebase Config (변경 시 붙여넣기)</label>
+                <textarea id="config-textarea" class="w-full h-32 p-3 bg-slate-900 text-emerald-400 font-mono text-xs rounded-xl focus:outline-none" placeholder='const firebaseConfig = { apiKey: "...", ... };'></textarea>
+            </div>
+        </div>
+        <div class="pt-4 border-t border-slate-100 flex items-center justify-end space-x-2">
+            <button onclick="clearConfig()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-semibold">초기화</button>
+            <button onclick="saveConfig()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold">적용하기</button>
+        </div>
+    </div>
+</div>
+
+<!-- 공유 링크 모달 -->
+<div id="modal-share" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl text-center">
+        <div class="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fa-solid fa-paper-plane text-2xl"></i>
+        </div>
+        <h3 class="font-bold text-slate-800 text-lg mb-1">클라우드 저장 완료!</h3>
+        <div class="flex items-center space-x-1.5 bg-slate-50 p-2.5 border border-slate-200 rounded-xl mb-4 mt-4">
+            <input type="text" id="share-link-input" readonly class="bg-transparent text-slate-600 text-xs flex-1 outline-none font-semibold truncate">
+            <button onclick="copyShareLink()" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold">복사하기</button>
+        </div>
+        <button onclick="closeShareModal()" class="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-sm">창 닫기</button>
+    </div>
+</div>
+
+<!-- YouTube BGM container -->
+<div id="yt-audio-container" style="position:absolute;width:1px;height:1px;left:-9999px;top:-9999px;overflow:hidden;opacity:0;pointer-events:none;">
+    <div id="yt-audio-player"></div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+<script src="https://www.youtube.com/iframe_api"></script>
+
+<script>
+/* ════════════════════════════════════════════
+   GLOBAL STATE
+   ════════════════════════════════════════════ */
+const bookState = {
+    title: "나의 첫 번째 이야기책", author: "무명작가",
+    description: "", coverUrlWebnovel: "", coverUrlTablet: "", coverUrlStandard: "",
+    chapters: [], currentChapterIndex: 0, viewMode: 'author'
+};
+let editingChapterId = null;
+let deleteIdxTarget = null;
+let db = null;
+let isFirebaseConnected = false;
+
+const IS_MOBILE = (navigator.maxTouchPoints > 0) || (window.innerWidth < 768);
+
+// Reader engine state
+let TOTAL = 1;
+let TITLES = [];
+let bkPages = [];
+let cur = 0;
+let fontSize = 16;
+let pcDots = [];
+let mobDots = [];
+let flipping = false;
+let readerInitialized = false;
+
+// Bookmark state
+const bookmarkState = {
+    activeBookId: 'local_novel',
+    savedPageIndex: 0, savedParagraphIndex: 0, isRestoring: false
+};
+
+// Page curl state
+const st = {
+    phase: 'idle', dir: 0, grabX: 0, grabY: 0, curX: 0, curY: 0,
+    targetX: 0, targetY: 0, fromX: 0, fromY: 0,
+    startTime: 0, duration: 0, targetIdx: -1, completing: false
+};
+
+// BGM state
+let ytAudioPlayer = null;
+let sunoAudioObject = null;
+let currentPlayingMusicId = null;
+let currentPlayingBtn = null;
+let currentPlayingType = null;
+let currentVolume = 15;
+let isMuted = false;
+let preMutedVolume = 15;
+
+/* ════════════════════════════════════════════
+   INIT
+   ════════════════════════════════════════════ */
+window.onload = function() {
+    loadConfigAndInitialize();
+    initDragAndDrop();
+    loadLocalBookState();
+    const urlParams = new URLSearchParams(window.location.search);
+    const cloudBookId = urlParams.get('id');
+    if (cloudBookId) {
+        bookmarkState.activeBookId = cloudBookId;
+        setTimeout(() => loadBookFromCloud(cloudBookId), 800);
+    } else {
+        renderChapters();
+    }
+    window.addEventListener('resize', () => {
+        if (bookState.viewMode === 'reader') updateDynamicCoverOnResize();
+    });
+};
+
+/* ════════════════════════════════════════════
+   FIREBASE
+   ════════════════════════════════════════════ */
+async function loadConfigAndInitialize() {
+    const defaultConfig = {
+        apiKey: "AIzaSyAAvw0jA8ckUu2oX9I4dpb_MnNKWTZRkpw",
+        authDomain: "novel-mania-a6908.firebaseapp.com",
+        projectId: "novel-mania-a6908",
+        storageBucket: "novel-mania-a6908.firebasestorage.app",
+        messagingSenderId: "519347716266",
+        appId: "1:519347716266:web:5e348bf3a2bdae56e410d3"
+    };
+    const saved = localStorage.getItem('newtokkinam_firebase_config');
+    let cfg = defaultConfig;
+    if (saved) {
+        try {
+            const clean = saved.replace(/const\s+\w+\s*=\s*/, '').replace(/;$/, '').trim();
+            cfg = new Function(`return ${clean}`)();
+        } catch(e) {}
+    }
+    try {
+        if (firebase.apps.length === 0) firebase.initializeApp(cfg);
+        await firebase.auth().signInAnonymously();
+        db = firebase.firestore();
+        isFirebaseConnected = true;
+        setBadge('ok', '뉴토끼남 클라우드 연동');
+    } catch(e) {
+        setBadge('err', '연결 실패: ' + e.message);
+    }
+}
+
+function setBadge(type, text) {
+    const badge = document.getElementById('db-status-badge');
+    if (!badge) return;
+    const dot = type === 'ok'
+        ? '<span class="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span>'
+        : '<span class="w-2 h-2 bg-rose-500 rounded-full mr-2"></span>';
+    badge.innerHTML = dot + text;
+    badge.className = type === 'ok'
+        ? 'flex items-center px-3 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-lg border border-emerald-200'
+        : 'flex items-center px-3 py-1.5 bg-rose-50 text-rose-700 text-xs font-semibold rounded-lg border border-rose-200';
+}
+
+function openConfigModal() { document.getElementById('modal-config').classList.remove('hidden'); }
+function closeConfigModal() { document.getElementById('modal-config').classList.add('hidden'); }
+function saveConfig() {
+    const val = document.getElementById('config-textarea').value.trim();
+    if (!val) { showToast('설정값을 입력해 주세요.', 'error'); return; }
+    localStorage.setItem('newtokkinam_firebase_config', val);
+    closeConfigModal();
+    loadConfigAndInitialize();
+    showToast('설정 적용 완료!');
+}
+function clearConfig() {
+    localStorage.removeItem('newtokkinam_firebase_config');
+    localStorage.removeItem('newtokkinam_cloud_id');
+    document.getElementById('config-textarea').value = '';
+    closeConfigModal();
+    showToast('초기화되었습니다.');
+}
+function closeShareModal() { document.getElementById('modal-share').classList.add('hidden'); }
+function copyShareLink() {
+    const inp = document.getElementById('share-link-input');
+    inp.select(); inp.setSelectionRange(0, 99999);
+    document.execCommand('copy');
+    showToast('링크가 복사되었습니다!');
+}
+
+/* ════════════════════════════════════════════
+   TOAST
+   ════════════════════════════════════════════ */
+function showToast(message, type = 'success') {
+    const t = document.createElement('div');
+    t.className = `fixed bottom-6 right-6 z-[9999] px-5 py-3 rounded-2xl shadow-xl text-white text-xs font-semibold flex items-center space-x-3 transition-all transform ${type === 'error' ? 'bg-rose-600' : type === 'info' ? 'bg-sky-700' : 'bg-slate-900'}`;
+    t.innerHTML = `<i class="fa-solid ${type === 'error' ? 'fa-circle-exclamation' : 'fa-circle-check'}"></i><span>${message}</span>`;
+    document.body.appendChild(t);
+    setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 500); }, 3000);
+}
+
+/* ════════════════════════════════════════════
+   LOCAL STORAGE
+   ════════════════════════════════════════════ */
+function saveLocalBookState() {
+    localStorage.setItem('newtokkinam_local_book', JSON.stringify(bookState));
+}
+function loadLocalBookState() {
+    const saved = localStorage.getItem('newtokkinam_local_book') || localStorage.getItem('epicflow_local_book');
+    if (!saved) return;
+    try {
+        const p = JSON.parse(saved);
+        bookState.title = p.title || "나의 첫 번째 이야기책";
+        bookState.author = p.author || "무명작가";
+        bookState.description = p.description || "";
+        bookState.coverUrlWebnovel = p.coverUrlWebnovel || p.coverUrl || "";
+        bookState.coverUrlTablet = p.coverUrlTablet || "";
+        bookState.coverUrlStandard = p.coverUrlStandard || "";
+        bookState.chapters = p.chapters || [];
+        document.getElementById('input-book-title').value = bookState.title;
+        document.getElementById('input-book-author').value = bookState.author;
+        document.getElementById('input-book-description').value = bookState.description;
+        document.getElementById('input-book-cover-webnovel').value = bookState.coverUrlWebnovel;
+        document.getElementById('input-book-cover-tablet').value = bookState.coverUrlTablet;
+        document.getElementById('input-book-cover-standard').value = bookState.coverUrlStandard;
+    } catch(e) {}
+}
+
+/* ════════════════════════════════════════════
+   AUTHOR MODE
+   ════════════════════════════════════════════ */
+function initDragAndDrop() {
+    const dz = document.getElementById('drop-zone');
+    ['dragenter','dragover'].forEach(e => dz.addEventListener(e, ev => { ev.preventDefault(); dz.classList.add('bg-indigo-100'); }));
+    ['dragleave','drop'].forEach(e => dz.addEventListener(e, ev => { ev.preventDefault(); dz.classList.remove('bg-indigo-100'); }));
+    dz.addEventListener('drop', e => { if (e.dataTransfer.files.length) handleNovelTxtFile(e.dataTransfer.files[0]); });
+    document.getElementById('file-uploader').addEventListener('change', e => { if (e.target.files.length) handleNovelTxtFile(e.target.files[0]); });
+}
+
+function handleNovelTxtFile(file) {
+    const reader = new FileReader();
+    const name = file.name.replace(/\.[^/.]+$/, '');
+    reader.onload = e => {
+        document.getElementById('edit-chapter-title').value = name;
+        document.getElementById('edit-chapter-content').value = e.target.result;
+        showToast(`"${name}" 파일을 불러왔습니다.`);
+    };
+    reader.readAsText(file, 'UTF-8');
+}
+
+function updateBookInfo() {
+    bookState.title = document.getElementById('input-book-title').value || "제목 없음";
+    bookState.author = document.getElementById('input-book-author').value || "작가 미상";
+    bookState.description = document.getElementById('input-book-description').value || "";
+    bookState.coverUrlWebnovel = convertGoogleDriveLink(document.getElementById('input-book-cover-webnovel').value);
+    bookState.coverUrlTablet = convertGoogleDriveLink(document.getElementById('input-book-cover-tablet').value);
+    bookState.coverUrlStandard = convertGoogleDriveLink(document.getElementById('input-book-cover-standard').value);
+    const titleEl = document.getElementById('sb-book-title-el');
+    const authorEl = document.getElementById('sb-book-author-el');
+    if (titleEl) titleEl.textContent = bookState.title;
+    if (authorEl) authorEl.textContent = bookState.author + " 지음";
+    saveLocalBookState();
+}
+
+function renderChapters() {
+    const list = document.getElementById('author-chapter-list');
+    document.getElementById('chapter-count').textContent = `${bookState.chapters.length}화`;
+    if (!bookState.chapters.length) {
+        list.innerHTML = `<div class="text-center py-10 text-slate-400 text-sm"><i class="fa-solid fa-box-open text-3xl mb-2 block"></i>등록된 회차가 없습니다.</div>`;
+        return;
+    }
+    list.innerHTML = bookState.chapters.map((c, i) => {
+        const isEditing = c.id === editingChapterId;
+        return `
+        <div class="group flex items-center justify-between p-3 rounded-xl border transition-all ${isEditing ? 'bg-indigo-50 border-indigo-300' : 'bg-slate-50 border-slate-200'}">
+            <div class="flex-1 truncate cursor-pointer pr-2" onclick="loadToEditor(${i})">
+                <span class="text-xs font-bold text-slate-400 mr-2">${i+1}화</span>
+                <span class="text-sm font-semibold text-slate-700">${c.title}</span>
+                ${isEditing ? '<span class="ml-2 text-[9px] text-indigo-500 font-bold bg-indigo-100 px-1.5 py-0.5 rounded">수정중</span>' : ''}
+            </div>
+            <div class="flex items-center space-x-1 opacity-20 group-hover:opacity-100 transition-opacity">
+                <button onclick="moveChapter(${i},-1)" class="w-7 h-7 bg-white hover:bg-slate-200 text-slate-500 rounded-lg flex items-center justify-center border"><i class="fa-solid fa-chevron-up text-[10px]"></i></button>
+                <button onclick="moveChapter(${i},1)" class="w-7 h-7 bg-white hover:bg-slate-200 text-slate-500 rounded-lg flex items-center justify-center border"><i class="fa-solid fa-chevron-down text-[10px]"></i></button>
+                <button onclick="deleteChapter(${i})" class="w-7 h-7 bg-white hover:bg-rose-50 text-rose-500 rounded-lg flex items-center justify-center border border-rose-100"><i class="fa-solid fa-trash-can text-xs"></i></button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function loadToEditor(idx) {
+    const chap = bookState.chapters[idx];
+    editingChapterId = chap.id;
+    document.getElementById('edit-chapter-title').value = chap.title;
+    document.getElementById('edit-chapter-content').value = chap.content;
+    document.getElementById('btn-cancel-edit').classList.remove('hidden');
+    document.getElementById('btn-submit-chapter').innerHTML = '<i class="fa-solid fa-check mr-1.5"></i>이 회차를 수정';
+    showToast(`"${chap.title}" 로드됨. 수정 후 저장하세요.`, 'info');
+    renderChapters();
+}
+
+// ✅ 추가: resetEditor
+function resetEditor() {
+    editingChapterId = null;
+    document.getElementById('edit-chapter-title').value = '';
+    document.getElementById('edit-chapter-content').value = '';
+    document.getElementById('btn-cancel-edit').classList.add('hidden');
+    document.getElementById('btn-submit-chapter').innerHTML = '이 회차를 등록';
+    renderChapters();
+}
+
+function addOrUpdateChapter() {
+    const t = document.getElementById('edit-chapter-title').value.trim();
+    const c = document.getElementById('edit-chapter-content').value.trim();
+    if (!t || !c) return showToast('제목과 내용을 채워주세요.', 'error');
+    if (editingChapterId) {
+        const idx = bookState.chapters.findIndex(ch => ch.id === editingChapterId);
+        if (idx !== -1) { bookState.chapters[idx] = { ...bookState.chapters[idx], title: t, content: c }; showToast('회차가 수정되었습니다.'); }
+    } else {
+        bookState.chapters.push({ id: 'ch_' + Date.now(), title: t, content: c });
+        showToast('새 회차가 등록되었습니다.');
+    }
+    resetEditor(); saveLocalBookState(); renderChapters();
+}
+
+// ✅ 추가: moveChapter
+function moveChapter(idx, dir) {
+    const target = idx + dir;
+    if (target < 0 || target >= bookState.chapters.length) return;
+    [bookState.chapters[idx], bookState.chapters[target]] = [bookState.chapters[target], bookState.chapters[idx]];
+    saveLocalBookState(); renderChapters();
+}
+
+// ✅ 추가: deleteChapter (커스텀 모달 사용)
+function deleteChapter(idx) {
+    deleteIdxTarget = idx;
+    document.getElementById('modal-confirm-delete').classList.remove('hidden');
+}
+function closeDeleteModal(confirmed) {
+    document.getElementById('modal-confirm-delete').classList.add('hidden');
+    if (confirmed && deleteIdxTarget !== null) {
+        const title = bookState.chapters[deleteIdxTarget].title;
+        bookState.chapters.splice(deleteIdxTarget, 1);
+        if (editingChapterId) { editingChapterId = null; resetEditor(); }
+        saveLocalBookState(); renderChapters();
+        showToast(`"${title}" 삭제됨.`);
+    }
+    deleteIdxTarget = null;
+}
+
+/* ════════════════════════════════════════════
+   UTILS
+   ════════════════════════════════════════════ */
+function convertGoogleDriveLink(url) {
+    if (!url) return '';
+    url = url.trim();
+    if (url.startsWith('gs://')) {
+        const clean = url.replace('gs://', '');
+        const slash = clean.indexOf('/');
+        if (slash !== -1) return `https://firebasestorage.googleapis.com/v0/b/${clean.substring(0,slash)}/o/${encodeURIComponent(clean.substring(slash+1))}?alt=media`;
+    }
+    const m = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+    if (m) return `https://lh3.googleusercontent.com/d/${m[1]}`;
+    return url;
+}
+
+function getDeviceCoverInfo() {
+    const w = window.innerWidth;
+    let ratioMode, url;
+    if (w < 768) { ratioMode='webnovel'; url=bookState.coverUrlWebnovel||bookState.coverUrlStandard||bookState.coverUrlTablet; }
+    else if (w < 1024) { ratioMode='tablet'; url=bookState.coverUrlTablet||bookState.coverUrlStandard||bookState.coverUrlWebnovel; }
+    else { ratioMode='standard'; url=bookState.coverUrlStandard||bookState.coverUrlTablet||bookState.coverUrlWebnovel; }
+    return { ratioMode, url };
+}
+
+function updateDynamicCoverOnResize() {
+    const coverInner = document.querySelector('#p0 .cover-inner');
+    if (!coverInner) return;
+    const info = getDeviceCoverInfo();
+    const wrapper = coverInner.querySelector('.cover-art-container-hook');
+    const fallback = coverInner.querySelector('.cover-ornament-fallback');
+    if (!wrapper || !fallback) return;
+    if (info.url) {
+        fallback.style.display = 'none'; wrapper.style.display = 'block';
+        const rc = info.ratioMode === 'tablet' ? 'cover-ratio-tablet' : info.ratioMode === 'standard' ? 'cover-ratio-standard' : 'cover-ratio-webnovel';
+        wrapper.className = `cover-art-wrapper ${rc} cover-art-container-hook`;
+        wrapper.querySelector('img').src = info.url;
+    } else {
+        wrapper.style.display = 'none'; fallback.style.display = 'block';
+    }
+}
+
+/* ════════════════════════════════════════════
+   PROSE FORMATTER
+   ════════════════════════════════════════════ */
+
+// ✅ 추가: sanitizeAndFormatBold (원본에서 호출하지만 정의 없었던 함수)
+function sanitizeAndFormatBold(text) {
+    // <b>...</b> 와 <strong>...</strong> 태그 임시 보존
+    const bTags = [];
+    text = text.replace(/<b>([\s\S]*?)<\/b>/g, (_, inner) => { bTags.push(`<strong>${inner}</strong>`); return `\x00B${bTags.length-1}\x00`; });
+    text = text.replace(/<strong>([\s\S]*?)<\/strong>/g, (_, inner) => { bTags.push(`<strong>${inner}</strong>`); return `\x00B${bTags.length-1}\x00`; });
+    // XSS 방지 이스케이프
+    text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // 마크다운 **bold** 변환
+    text = text.replace(/\*\*([\s\S]*?)\*\*/g, '<strong>$1</strong>');
+    text = text.replace(/__([\s\S]*?)__/g, '<strong>$1</strong>');
+    // 보존했던 태그 복원
+    text = text.replace(/\x00B(\d+)\x00/g, (_, i) => bTags[parseInt(i)]);
+    return text;
+}
+
+function parseSpecialBlocks(text) {
+    text = text.replace(/\[lyrics\]([\s\S]*?)\[\/lyrics\]/g, (_, c) => {
+        const inner = c.trim().split('\n').map(l => sanitizeAndFormatBold(l)).join('<br>');
+        return `\n<div class="lyrics-block font-serif">${inner}</div>\n`;
+    });
+    text = text.replace(/\[chat\]([\s\S]*?)\[\/chat\]/g, (_, c) => {
+        const lines = c.trim().split('\n').map(line => {
+            const ci = line.indexOf(':');
+            if (ci !== -1) {
+                const sender = line.substring(0, ci).trim();
+                const msg = line.substring(ci+1).trim();
+                const cls = sender === '준환' ? 'chat-right' : 'chat-left';
+                return `<div class="chat-line ${cls}"><span class="chat-sender">${sender}</span>: ${msg}</div>`;
+            }
+            return `<div class="chat-line chat-left">${line.trim()}</div>`;
+        }).join('');
+        return `\n<div class="chat-block">${lines}</div>\n`;
+    });
+    text = text.replace(/\[flashback\]([\s\S]*?)\[\/flashback\]/g, (_, c) => {
+        const inner = c.trim().split('\n').map(l => sanitizeAndFormatBold(l.trim())).filter(Boolean).join('<br>');
+        return `\n<div class="flashback-block font-serif">${inner}</div>\n`;
+    });
+    text = text.replace(/\[music=(.*?)\](.*?)\[\/music\]/g, (_, link, title) => {
+        const clean = link.trim().replace(/"/g, '&quot;');
+        return `\n<div class="music-block"><a onclick="togglePlayMusic('${clean}', this)" class="music-link"><i class="fa-solid fa-compact-disc"></i> <span>${title.trim()}</span></a></div>\n`;
+    });
+    text = text.replace(/\[image=(.*?)\]([\s\S]*?)\[\/image\]/g, (_, link, cap) => {
+        const clean = convertGoogleDriveLink(link.trim());
+        return `\n<div class="illustration-block"><img src="${clean}" alt="${cap.trim()}" class="illustration-img" onerror="this.parentElement.style.display='none'"><p class="illustration-caption">${cap.trim()}</p></div>\n`;
+    });
+    return text;
+}
+
+function formatProse(c) {
+    const clean = c.replace(/\r/g, '');
+    let firstDrop = false;
+    let content = parseSpecialBlocks(clean);
+    const lines = content.split('\n');
+    const out = [];
+    for (let i = 0; i < lines.length; i++) {
+        const p = lines[i], t = p.trim();
+        if (t === '[[transition]]') {
+            const si = i; i++;
+            const bl = [];
+            while (i < lines.length && lines[i].trim() !== '[[/transition]]') { bl.push(lines[i]); i++; }
+            out.push(`<div class="transition-block" data-para-idx="${si}"><span>${bl.map(l => sanitizeAndFormatBold(l)).join('<br>')}</span></div>`);
+            continue;
+        }
+        if (p.startsWith('<div') || p.startsWith('</div') || p.startsWith('<blockquote') || p.startsWith('</blockquote') || p.startsWith('<a')) { out.push(p); continue; }
+        if (t === '***' || t === '* * *') { out.push(`<div class="scene-asterisk" data-para-idx="${i}">❧&nbsp;&nbsp;&nbsp;❧&nbsp;&nbsp;&nbsp;❧</div>`); continue; }
+        if (t === '<...>' || t === '<…>') {
+            out.push(`<div class="scene-dots" data-para-idx="${i}"><span style="font-size:5px;line-height:1">●</span><span style="font-size:9px;line-height:1">●</span><span style="font-size:14px;line-height:1">●</span><span style="font-size:9px;line-height:1">●</span><span style="font-size:5px;line-height:1">●</span></div>`); continue;
+        }
+        if (t === '-----') { out.push(`<div class="scene-long-line" data-para-idx="${i}"></div>`); continue; }
+        if (t === '=====') { out.push(`<div class="scene-double-line" data-para-idx="${i}"></div>`); continue; }
+        if (t === '') { out.push(`<p class="prose-empty-line" data-para-idx="${i}">&nbsp;</p>`); continue; }
+        if (!firstDrop) {
+            firstDrop = true;
+            out.push(`<p class="drop" data-para-idx="${i}">${sanitizeAndFormatBold(p)}</p>`);
+        } else {
+            out.push(`<p data-para-idx="${i}">${sanitizeAndFormatBold(p)}</p>`);
+        }
+    }
+    return out.filter(Boolean).join('');
+}
+
+/* ════════════════════════════════════════════
+   VIEW MODE SWITCH
+   ════════════════════════════════════════════ */
+function switchViewMode(mode) {
+    bookState.viewMode = mode;
+    document.body.classList.toggle('reader-active', mode === 'reader');
+    document.getElementById('author-workspace').classList.toggle('hidden', mode === 'reader');
+    document.getElementById('reader-workspace').classList.toggle('hidden', mode === 'author');
+    document.getElementById('author-header').classList.toggle('hidden', mode === 'reader');
+    document.getElementById('author-footer').classList.toggle('hidden', mode === 'reader');
+    if (mode === 'reader') {
+        updateBookInfo();
+        buildReaderPages();
+        resetMusicButtons();
+        if (ytAudioPlayer && ytAudioPlayer.stopVideo) ytAudioPlayer.stopVideo();
+        setTimeout(checkAndTriggerBookmark, 150);
+    }
+}
+function goHome() { switchViewMode('author'); }
+
+/* ════════════════════════════════════════════
+   BUILD READER PAGES
+   ════════════════════════════════════════════ */
+function buildReaderPages() {
+    const stage = document.getElementById('stage');
+    stage.querySelectorAll('.book-page').forEach(p => p.remove());
+    TOTAL = bookState.chapters.length + 1;
+    TITLES = [bookState.title, ...bookState.chapters.map(c => c.title)];
+
+    const info = getDeviceCoverInfo();
+    const rc = info.ratioMode === 'tablet' ? 'cover-ratio-tablet' : info.ratioMode === 'standard' ? 'cover-ratio-standard' : 'cover-ratio-webnovel';
+
+    // Cover page
+    const coverDiv = document.createElement('div');
+    coverDiv.className = 'book-page'; coverDiv.id = 'p0';
+    coverDiv.innerHTML = `
+        <div class="page-scroll" onscroll="handleReaderScroll(0,this)">
+            <div class="cover-inner">
+                <div class="cover-art-wrapper ${rc} cover-art-container-hook" style="display:${info.url?'block':'none'}">
+                    <img src="${info.url||''}" alt="Cover" class="cover-art-img" onerror="this.parentElement.style.display='none';this.closest('.cover-inner').querySelector('.cover-ornament-fallback').style.display='block'">
+                </div>
+                <div class="cover-ornament cover-ornament-fallback" style="display:${info.url?'none':'block'}">❧</div>
+                <h1 class="cover-title">${bookState.title}</h1>
+                <p class="cover-sub">${bookState.description || '시놉시스가 없습니다.'}</p>
+                <div class="cover-divider"></div>
+                <p class="cover-author">${bookState.author} 지음</p>
+                <p class="swipe-hint">← 밀어서 읽기 →</p>
+            </div>
+        </div>`;
+    stage.insertBefore(coverDiv, canvas);
+
+    // Chapter pages
+    bookState.chapters.forEach((ch, i) => {
+        const pg = document.createElement('div');
+        pg.className = 'book-page'; pg.id = `p${i+1}`;
+        pg.innerHTML = `
+            <div class="page-scroll" onscroll="handleReaderScroll(${i+1},this)">
+                <div class="ch-header">
+                    <div class="ch-number">제 ${i+1}화</div>
+                    <h2 class="ch-title">${ch.title}</h2>
+                    <div class="ch-dot">· · ·</div>
+                </div>
+                <div class="prose">
+                    ${formatProse(ch.content)}
+                    <div class="chapter-end-marker">— 제 ${i+1}화 끝 —</div>
+                </div>
+                <div class="page-foot">
+                    <span class="pf-side">${bookState.title}</span>
+                    <span class="pf-num">${i+1}</span>
+                    <span class="pf-side">제 ${i+1}화</span>
+                </div>
+            </div>`;
+        stage.insertBefore(pg, canvas);
+    });
+
+    bkPages = Array.from({length: TOTAL}, (_, i) => document.getElementById('p'+i));
+    buildTOC();
+
+    // ✅ 수정: 뷰어 초기화 — PC/모바일 분기 처리
+    if (IS_MOBILE) {
+        initMobile();
+    } else {
+        initPC();
+    }
+}
+
+/* ════════════════════════════════════════════
+   TOC
+   ════════════════════════════════════════════ */
+function buildTOC() {
+    const items = TITLES.map((t, i) =>
+        `<button class="toc-btn w-full text-left font-sans" onclick="goToPageWithState(${i})">
+            <span class="toc-name">${i===0 ? '표지' : `${i}화 — ${t}`}</span>
+        </button>`
+    ).join('');
+    document.getElementById('sbToc').innerHTML = items;
+    document.getElementById('mobTocContainer').innerHTML = items;
+}
+
+/* ════════════════════════════════════════════
+   PC MODE INIT  ✅ 추가
+   ════════════════════════════════════════════ */
+function initPC() {
+    document.getElementById('mobBottom').style.display = 'none';
+    document.getElementById('pcBottom').style.display = 'flex';
+    document.getElementById('sidebar').style.display = 'flex';
+    document.getElementById('flipCanvas').style.display = 'none';
+
+    // dots 재생성
+    const dotsEl = document.getElementById('pcDots');
+    dotsEl.innerHTML = ''; pcDots = [];
+    bkPages.forEach((_, i) => {
+        const d = document.createElement('button');
+        d.className = 'pc-dot';
+        d.addEventListener('click', () => pcCommit(i));
+        dotsEl.appendChild(d); pcDots.push(d);
+    });
+
+    // 사이드바 토글
+    document.getElementById('tbLeft').onclick = () => document.getElementById('sidebar').classList.toggle('collapsed');
+    // Aa 버튼
+    document.getElementById('tbRight').onclick = () => document.getElementById('sidebar').classList.toggle('collapsed');
+
+    document.getElementById('pcFontUp').onclick = () => { if(fontSize<24){fontSize++;applyFont();} };
+    document.getElementById('pcFontDown').onclick = () => { if(fontSize>13){fontSize--;applyFont();} };
+    document.getElementById('mobFontUp').onclick = () => { if(fontSize<24){fontSize++;applyFont();} };
+    document.getElementById('mobFontDown').onclick = () => { if(fontSize>13){fontSize--;applyFont();} };
+
+    pcCommit(0);
+}
+
+/* ════════════════════════════════════════════
+   MOBILE MODE INIT  ✅ 추가
+   ════════════════════════════════════════════ */
+let W = 0, H = 0, DPR = 1;
+const canvas = document.getElementById('flipCanvas');
+const ctx = canvas.getContext('2d');
+
+function initMobile() {
+    document.getElementById('pcBottom').style.display = 'none';
+    document.getElementById('sidebar').style.display = 'none';
+    document.getElementById('mobBottom').style.display = 'flex';
+    canvas.style.display = 'block';
+
+    resizeMob();
+    window.addEventListener('resize', resizeMob);
+
+    // dots 재생성
+    const dotsEl = document.getElementById('mobDots');
+    dotsEl.innerHTML = ''; mobDots = [];
+    bkPages.forEach((_, i) => {
+        const d = document.createElement('button');
+        d.className = 'mob-dot';
+        d.addEventListener('click', () => triggerFlip(i));
+        dotsEl.appendChild(d); mobDots.push(d);
+    });
+
+    // 메뉴/토글 버튼
+    document.getElementById('tbLeft').onclick = () => document.getElementById('menuOverlay').classList.add('open');
+    document.getElementById('tbRight').onclick = () => document.getElementById('menuOverlay').classList.add('open');
+    document.getElementById('menuOverlay').addEventListener('click', e => {
+        if (e.target === document.getElementById('menuOverlay')) document.getElementById('menuOverlay').classList.remove('open');
+    });
+
+    document.getElementById('pcFontUp').onclick = () => { if(fontSize<24){fontSize++;applyFont();} };
+    document.getElementById('pcFontDown').onclick = () => { if(fontSize>13){fontSize--;applyFont();} };
+    document.getElementById('mobFontUp').onclick = () => { if(fontSize<24){fontSize++;applyFont();} };
+    document.getElementById('mobFontDown').onclick = () => { if(fontSize>13){fontSize--;applyFont();} };
+
+    // Touch events
+    let tSX=0, tSY=0, tScrolling=false;
+    canvas.addEventListener('touchstart', e => {
+        tSX = e.touches[0].clientX; tSY = e.touches[0].clientY; tScrolling = false;
+    }, {passive:true});
+    canvas.addEventListener('touchmove', e => {
+        if (st.phase === 'dragging') { e.preventDefault(); moveDrag(e.touches[0].clientX, e.touches[0].clientY); return; }
+        if (tScrolling) return;
+        const dx = Math.abs(e.touches[0].clientX - tSX), dy = Math.abs(e.touches[0].clientY - tSY);
+        if (dy > dx * 1.4) { tScrolling = true; return; }
+        if (dx > 8) { startDrag(tSX, tSY); if (st.phase === 'dragging') moveDrag(e.touches[0].clientX, e.touches[0].clientY); }
+    }, {passive:false});
+    canvas.addEventListener('touchend', e => {
+        if (st.phase === 'dragging') endDrag(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+    }, {passive:true});
+
+    mobCommit(0);
+}
+
+function resizeMob() {
+    DPR = devicePixelRatio || 1;
+    W = document.getElementById('stage').offsetWidth;
+    H = document.getElementById('stage').offsetHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    layoutPages();
+}
+
+/* ════════════════════════════════════════════
+   PAGE LAYOUT
+   ════════════════════════════════════════════ */
+function layoutPages() {
+    bkPages.forEach((p, i) => { if(p) p.style.zIndex = i === cur ? 10 : (i < cur ? 5 : 2); });
+}
+
+/* ════════════════════════════════════════════
+   PC COMMIT
+   ════════════════════════════════════════════ */
+function pcCommit(idx) {
+    if (idx < 0 || idx >= TOTAL) return;
+    resetMusicButtons();
+    if (ytAudioPlayer && ytAudioPlayer.stopVideo) ytAudioPlayer.stopVideo();
+    cur = idx;
+    layoutPages();
+
+    document.getElementById('pcPrev').disabled = cur === 0;
+    document.getElementById('pcNext').disabled = cur === TOTAL - 1;
+    const mp = document.getElementById('mobPrev'), mn = document.getElementById('mobNext');
+    if (mp) mp.disabled = cur === 0;
+    if (mn) mn.disabled = cur === TOTAL - 1;
+
+    const tbTitle = document.getElementById('tbTitle');
+    if (tbTitle) {
+        tbTitle.innerHTML = cur === 0
+            ? `뉴토끼남 뷰어 — <span style="color:var(--accent);font-weight:700;">표지</span>`
+            : `<span style="color:var(--accent);font-weight:700;font-family:var(--sans)">${cur}화</span> / 전체 ${TOTAL-1}화 — <span style="font-family:var(--serif)">${TITLES[cur]}</span>`;
+    }
+
+    document.getElementById('sbFill').style.width = '0%';
+    document.getElementById('sbText').textContent = cur === 0 ? '표지' : `제 ${cur}화`;
+
+    const pf = document.getElementById('reader-top-progress-fill');
+    const pl = document.getElementById('reader-top-progress-label');
+    if (pf) pf.style.width = '0%';
+    if (pl) pl.textContent = cur === 0 ? '표지' : '0%';
+
+    pcDots.forEach((d, i) => d.classList.toggle('active', i === cur));
+    document.querySelectorAll('#sbToc .toc-btn').forEach((b, i) => b.classList.toggle('active', i === cur));
+    document.querySelectorAll('#mobTocContainer .toc-btn').forEach((b, i) => b.classList.toggle('active', i === cur));
+
+    const activePage = document.getElementById(`p${cur}`);
+    if (activePage) {
+        const scroller = activePage.querySelector('.page-scroll');
+        if (scroller) { scroller.scrollTop = 0; }
+        const prog = document.getElementById('page-top-scroll-progress');
+        if (prog) prog.style.width = '0%';
+    }
+    if (!bookmarkState.isRestoring) saveBookmark(cur, 0);
+    // 화 진입 시 첫 번째 music 블록 자동재생
+    setTimeout(() => autoPlayChapterMusic(cur), 80);
+}
+
+/* ════════════════════════════════════════════
+   MOBILE COMMIT
+   ════════════════════════════════════════════ */
+function mobCommit(idx) {
+    if (idx < 0 || idx >= TOTAL) return;
+    cur = idx;
+    layoutPages();
+    mobDots.forEach((d, i) => d.classList.toggle('active', i === cur));
+    document.getElementById('mobPrev').disabled = cur === 0;
+    document.getElementById('mobNext').disabled = cur === TOTAL - 1;
+    const tbTitle = document.getElementById('tbTitle');
+    if (tbTitle) tbTitle.textContent = TITLES[cur] || '';
+    document.querySelectorAll('#mobTocContainer .toc-btn').forEach((b, i) => b.classList.toggle('active', i === cur));
+    if (!bookmarkState.isRestoring) saveBookmark(cur, 0);
+    // 화 진입 시 첫 번째 music 블록 자동재생
+    setTimeout(() => autoPlayChapterMusic(cur), 80);
+}
+
+/* ════════════════════════════════════════════
+   AUTO PLAY CHAPTER MUSIC
+   화 진입 시 첫 번째 [music] 블록 자동재생
+   마지막 페이지 도달 / 다른 화 이동 시 자동 정지는
+   resetMusicButtons()가 pcCommit/mobCommit 앞에서 처리
+   ════════════════════════════════════════════ */
+function autoPlayChapterMusic(pageIdx) {
+    // 표지(0)는 자동재생 안 함
+    if (pageIdx === 0) return;
+    const page = document.getElementById(`p${pageIdx}`);
+    if (!page) return;
+    const firstLink = page.querySelector('.music-link');
+    if (!firstLink) return;
+    // 이미 재생 중이면 스킵
+    if (currentPlayingMusicId) return;
+    firstLink.click();
+}
+
+function navigateToAdjacentChapter(dir) {
+    const t = cur + dir;
+    if (t >= 0 && t < TOTAL) pcCommit(t);
+}
+
+function goToPageWithState(idx) {
+    if (!bookmarkState.isRestoring) saveBookmark(idx, 0);
+    if (IS_MOBILE) { document.getElementById('menuOverlay').classList.remove('open'); triggerFlip(idx); }
+    else pcCommit(idx);
+}
+
+/* ════════════════════════════════════════════
+   PAGE CURL ENGINE  ✅ 추가
+   ════════════════════════════════════════════ */
+function isDark() { return window.matchMedia('(prefers-color-scheme:dark)').matches; }
+function paperFront() { return isDark() ? '#211e17' : '#fdfaf3'; }
+function paperBack()  { return isDark() ? '#1c1912' : '#ede5d0'; }
+
+function drawCurl(fX, fY) {
+    ctx.clearRect(0, 0, W, H);
+    const origX = st.dir === 1 ? W : 0, origY = st.grabY;
+    const midX = (origX+fX)/2, midY = (origY+fY)/2;
+    const dx = fX-origX, dy = fY-origY, len = Math.sqrt(dx*dx+dy*dy)||0.001;
+    const nx = dx/len, ny = dy/len;
+    function sd(x,y){return nx*(x-midX)+ny*(y-midY);}
+    function clip(poly){
+        let r=[];
+        for(let i=0;i<poly.length;i++){
+            const a=poly[i],b=poly[(i+1)%poly.length],sa=sd(a.x,a.y),sb=sd(b.x,b.y);
+            if(sa>=0)r.push(a);
+            if((sa>0&&sb<0)||(sa<0&&sb>0)){const t=sa/(sa-sb);r.push({x:a.x+t*(b.x-a.x),y:a.y+t*(b.y-a.y)});}
+        }
+        return r;
+    }
+    const peel=clip([{x:0,y:0},{x:W,y:0},{x:W,y:H},{x:0,y:H}]);
+    if(peel.length<2)return;
+    const fp=peel.filter(p=>Math.abs(sd(p.x,p.y))<0.5);
+    if(fp.length>=2){
+        const f0=fp[0],f1=fp[fp.length-1],sw=Math.min(60,len*0.4);
+        const g=ctx.createLinearGradient(f0.x,f0.y,f0.x-nx*sw,f0.y-ny*sw);
+        g.addColorStop(0,isDark()?'rgba(0,0,0,0.55)':'rgba(40,20,5,0.28)');g.addColorStop(1,'rgba(0,0,0,0)');
+        ctx.save();ctx.beginPath();ctx.moveTo(f0.x,f0.y);ctx.lineTo(f1.x,f1.y);ctx.lineTo(f1.x-nx*sw,f1.y-ny*sw);ctx.lineTo(f0.x-nx*sw,f0.y-ny*sw);ctx.closePath();ctx.fillStyle=g;ctx.fill();ctx.restore();
+    }
+    ctx.save();ctx.beginPath();peel.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));ctx.closePath();ctx.fillStyle=paperFront();ctx.fill();ctx.restore();
+    function ref(p){const d=sd(p.x,p.y);return{x:p.x-2*d*nx,y:p.y-2*d*ny};}
+    function clipPg(poly){
+        let r=poly;
+        for(const c of [{nx:1,ny:0,d:0},{nx:-1,ny:0,d:-W},{nx:0,ny:1,d:0},{nx:0,ny:-1,d:-H}]){
+            const next=[];
+            for(let i=0;i<r.length;i++){const a=r[i],b=r[(i+1)%r.length],sa=c.nx*a.x+c.ny*a.y+c.d,sb=c.nx*b.x+c.ny*b.y+c.d;if(sa>=0)next.push(a);if((sa>0&&sb<0)||(sa<0&&sb>0)){const t=sa/(sa-sb);next.push({x:a.x+t*(b.x-a.x),y:a.y+t*(b.y-a.y)});}}
+            r=next;if(!r.length)break;
+        }
+        return r;
+    }
+    const back=clipPg(peel.map(ref));
+    if(back.length>=3){
+        ctx.save();ctx.beginPath();back.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));ctx.closePath();ctx.fillStyle=paperBack();ctx.fill();
+        if(fp.length>=2){const rf=ref(fp[0]);const bg=ctx.createLinearGradient(rf.x,rf.y,rf.x-nx*50,rf.y-ny*50);bg.addColorStop(0,isDark()?'rgba(0,0,0,0.55)':'rgba(40,15,0,0.32)');bg.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=bg;ctx.fill();}
+        ctx.restore();
+    }
+    if(fp.length>=2){ctx.save();ctx.beginPath();ctx.moveTo(fp[0].x,fp[0].y);ctx.lineTo(fp[fp.length-1].x,fp[fp.length-1].y);ctx.strokeStyle=isDark()?'rgba(255,255,255,0.06)':'rgba(255,255,255,0.55)';ctx.lineWidth=1.5;ctx.stroke();ctx.restore();}
+}
+
+function easeIO(t){return t<0.5?2*t*t:-1+(4-2*t)*t;}
+
+function tick(now){
+    if(st.phase==='idle')return;
+    if(st.phase==='dragging'){drawCurl(st.curX,st.curY);requestAnimationFrame(tick);return;}
+    if(st.phase==='releasing'){
+        const t=Math.min((now-st.startTime)/st.duration,1),et=easeIO(t);
+        drawCurl(st.fromX+(st.targetX-st.fromX)*et,st.fromY+(st.targetY-st.fromY)*et);
+        if(t<1){requestAnimationFrame(tick);return;}
+        if(st.completing)mobCommit(st.targetIdx);else layoutPages();
+        ctx.clearRect(0,0,W,H);st.phase='idle';flipping=false;
+    }
+}
+
+function startDrag(x,y){
+    if(flipping)return false;
+    const dir=x>W/2?1:-1,tIdx=cur+dir;
+    if(tIdx<0||tIdx>=TOTAL)return false;
+    flipping=true;st.phase='dragging';st.dir=dir;st.grabX=x;st.grabY=y;st.curX=x;st.curY=y;st.targetIdx=tIdx;
+    if(dir===1){bkPages[tIdx].style.zIndex=8;bkPages[cur].style.zIndex=10;}else{bkPages[tIdx].style.zIndex=12;bkPages[cur].style.zIndex=10;}
+    requestAnimationFrame(tick);return true;
+}
+function moveDrag(x,y){if(st.phase==='dragging'){st.curX=x;st.curY=y;}}
+function endDrag(x,y){
+    if(st.phase!=='dragging')return;
+    const origX=st.dir===1?W:0,traveled=(origX-x)*st.dir;
+    st.fromX=x;st.fromY=y;st.phase='releasing';st.startTime=performance.now();
+    if(traveled>W*0.28){st.targetX=st.dir===1?-W*0.5:W*1.5;st.targetY=y;st.duration=340;st.completing=true;}
+    else{st.targetX=origX;st.targetY=st.grabY;st.duration=260;st.completing=false;layoutPages();}
+    requestAnimationFrame(tick);
+}
+function triggerFlip(tIdx){
+    if(flipping||tIdx===cur||tIdx<0||tIdx>=TOTAL)return;
+    const dir=tIdx>cur?1:-1,gX=dir===1?W-1:1,gY=H/2;
+    flipping=true;st.phase='releasing';st.dir=dir;st.grabX=gX;st.grabY=gY;st.targetIdx=tIdx;
+    if(dir===1){bkPages[tIdx].style.zIndex=8;bkPages[cur].style.zIndex=10;}else{bkPages[tIdx].style.zIndex=12;bkPages[cur].style.zIndex=10;}
+    st.fromX=gX;st.fromY=gY;st.startTime=performance.now();
+    st.targetX=dir===1?-W*0.5:W*1.5;st.targetY=gY;st.duration=480;st.completing=true;
+    requestAnimationFrame(tick);
+}
+
+/* ════════════════════════════════════════════
+   FONT
+   ════════════════════════════════════════════ */
+function applyFont() {
+    const prev={page:bookmarkState.savedPageIndex,para:bookmarkState.savedParagraphIndex};
+    document.querySelectorAll('.prose').forEach(el=>el.style.fontSize=fontSize+'px');
+    document.getElementById('pcFontVal').textContent=fontSize;
+    document.getElementById('mobFontVal').textContent=fontSize;
+    if(prev.page>0&&!bookmarkState.isRestoring) restoreReadingPosition(prev.page,prev.para);
+}
+
+/* ════════════════════════════════════════════
+   SCROLL & BOOKMARK
+   ════════════════════════════════════════════ */
+function handleReaderScroll(pageIdx, sc) {
+    if(bookmarkState.isRestoring)return;
+    const sh=sc.scrollHeight-sc.clientHeight, st_=sc.scrollTop;
+    const pct=sh>0?(st_/sh)*100:0;
+    const prog=document.getElementById('page-top-scroll-progress');
+    if(prog)prog.style.width=`${pct}%`;
+
+    if(sh>0&&(sh-st_)<=60&&currentPlayingMusicId){
+        resetMusicButtons();
+        if(ytAudioPlayer&&ytAudioPlayer.stopVideo)ytAudioPlayer.stopVideo();
+        showToast('배경음악을 자동 정지합니다.','info');
+    }
+
+    if(pageIdx===0){saveBookmark(0,0);return;}
+
+    // 음악 자동 재생
+    sc.querySelectorAll('.music-block').forEach(block=>{
+        const br=block.getBoundingClientRect(),cr=sc.getBoundingClientRect();
+        if(Math.abs((br.top+br.height/2)-(cr.top+cr.height/2))<150){
+            const ml=block.querySelector('.music-link');
+            if(ml&&!ml.classList.contains('playing')){
+                const m=(ml.getAttribute('onclick')||'').match(/togglePlayMusic\('(.*?)'/);
+                if(m){const tid=extractSunoId(m[1])||extractVideoId(m[1]);if(currentPlayingMusicId!==tid)togglePlayMusic(m[1],ml);}
+            }
+        }
+    });
+
+    // 문단 추적
+    const paras=sc.querySelectorAll('[data-para-idx]');
+    const top=sc.getBoundingClientRect().top+15;
+    let activeIdx=0;
+    for(const p of paras){if(p.getBoundingClientRect().bottom>=top){activeIdx=parseInt(p.getAttribute('data-para-idx'))||0;break;}}
+    saveBookmark(pageIdx,activeIdx);
+
+    const fill=Math.round(pct);
+    document.getElementById('sbFill').style.width=`${fill}%`;
+    document.getElementById('sbText').textContent=`제 ${pageIdx}화 — ${fill}%`;
+    const pf=document.getElementById('reader-top-progress-fill'),pl=document.getElementById('reader-top-progress-label');
+    if(pf)pf.style.width=`${pct}%`;
+    if(pl)pl.textContent=`${fill}% 감상 완료`;
+}
+
+function saveBookmark(pageIdx,paraIdx){
+    bookmarkState.savedPageIndex=pageIdx;bookmarkState.savedParagraphIndex=paraIdx;
+    try{localStorage.setItem(`newtokkinam_bookmark_${bookmarkState.activeBookId}`,JSON.stringify({pageIdx,paraIdx,savedAt:Date.now()}));}catch(e){}
+}
+
+function checkAndTriggerBookmark(){
+    const saved=localStorage.getItem(`newtokkinam_bookmark_${bookmarkState.activeBookId}`);
+    if(saved){
+        try{
+            const p=JSON.parse(saved);
+            if(p.pageIdx>0&&p.pageIdx<TOTAL){
+                bookmarkState.savedPageIndex=p.pageIdx;bookmarkState.savedParagraphIndex=p.paraIdx;
+                const info=document.getElementById('bookmark-info-text');
+                if(info)info.innerHTML=`이전에 감상하시던 <strong>제 ${p.pageIdx}화 — ${TITLES[p.pageIdx]}</strong> 지점이 있습니다. 이어서 읽으시겠습니까?`;
+                document.getElementById('modal-bookmark').classList.remove('hidden');
+                return;
+            }
+        }catch(e){}
+    }
+    IS_MOBILE?mobCommit(0):pcCommit(0);
+}
+
+function closeBookmarkModal(restore){
+    document.getElementById('modal-bookmark').classList.add('hidden');
+    if(restore){restoreReadingPosition(bookmarkState.savedPageIndex,bookmarkState.savedParagraphIndex);}
+    else{saveBookmark(0,0);IS_MOBILE?mobCommit(0):pcCommit(0);}
+}
+
+function restoreReadingPosition(pageIdx,paraIdx){
+    bookmarkState.isRestoring=true;
+    IS_MOBILE?mobCommit(pageIdx):pcCommit(pageIdx);
+    const page=document.getElementById(`p${pageIdx}`);
+    if(!page){bookmarkState.isRestoring=false;return;}
+    const sc=page.querySelector('.page-scroll');
+    if(!sc){bookmarkState.isRestoring=false;return;}
+    setTimeout(()=>{
+        const target=sc.querySelector(`[data-para-idx="${paraIdx}"]`);
+        if(target){
+            const diff=target.getBoundingClientRect().top-sc.getBoundingClientRect().top;
+            sc.scrollTop+=diff;
+            target.classList.add('bookmark-anchor-highlight');
+            setTimeout(()=>target.classList.remove('bookmark-anchor-highlight'),1800);
+        }
+        setTimeout(()=>bookmarkState.isRestoring=false,80);
+    },200);
+}
+
+/* ════════════════════════════════════════════
+   CLOUD
+   ════════════════════════════════════════════ */
+async function saveToCloud(){
+    // 연결 안 됐으면 한 번 더 시도
+    if(!isFirebaseConnected){
+        showToast('클라우드 재연결 중...','info');
+        await loadConfigAndInitialize();
+    }
+    if(!isFirebaseConnected)return showToast('클라우드 연결 실패. Firebase 익명인증이 켜져 있는지 확인해 주세요.','error');
+    if(!bookState.chapters.length)return showToast('회차를 등록해주세요.','error');
+    showToast('저장 중...','info');
+    try{
+        const payload={title:bookState.title,author:bookState.author,description:bookState.description,coverUrlWebnovel:bookState.coverUrlWebnovel||'',coverUrlTablet:bookState.coverUrlTablet||'',coverUrlStandard:bookState.coverUrlStandard||'',chapters:bookState.chapters,lastUpdated:Date.now()};
+        let bookId=localStorage.getItem('newtokkinam_cloud_id');
+        if(bookId){await db.collection('novels').doc(bookId).set(payload);}
+        else{const doc=await db.collection('novels').add(payload);bookId=doc.id;localStorage.setItem('newtokkinam_cloud_id',bookId);}
+        const url=`${location.origin}${location.pathname}?id=${bookId}`;
+        document.getElementById('share-link-input').value=url;
+        document.getElementById('modal-share').classList.remove('hidden');
+        showToast('저장 완료!');
+    }catch(e){
+        showToast('저장 실패: '+e.message,'error');
+    }
+}
+
+async function loadBookFromCloud(id){
+    if(!isFirebaseConnected){setTimeout(()=>loadBookFromCloud(id),1000);return;}
+    try{
+        const doc=await db.collection('novels').doc(id).get();
+        if(doc.exists){
+            Object.assign(bookState,doc.data());
+            loadLocalBookState();
+            updateBookInfo();renderChapters();
+            switchViewMode('reader');
+            showToast(`"${bookState.title}" 로드 완료.`);
+        }else{showToast('존재하지 않는 소설입니다.','error');}
+    }catch(e){showToast('로드 실패: '+e.message,'error');}
+}
+
+/* ════════════════════════════════════════════
+   BGM (YouTube + Suno)
+   ════════════════════════════════════════════ */
+function onYouTubeIframeAPIReady(){
+    ytAudioPlayer=new YT.Player('yt-audio-player',{height:'0',width:'0',videoId:'',playerVars:{autoplay:0,controls:0,disablekb:1,fs:0,rel:0,iv_load_policy:3},events:{onStateChange:onPlayerStateChange,onReady:e=>e.target.setVolume(currentVolume)}});
+}
+function onPlayerStateChange(e){if(e.data===YT.PlayerState.ENDED)resetMusicButtons();}
+
+function resetMusicButtons(){
+    document.querySelectorAll('.music-link').forEach(btn=>{btn.classList.remove('playing');const i=btn.querySelector('.fa-compact-disc');if(i)i.classList.remove('fa-spin');});
+    if(sunoAudioObject){sunoAudioObject.pause();sunoAudioObject=null;}
+    currentPlayingMusicId=null;currentPlayingBtn=null;currentPlayingType=null;
+    updateMasterPlayPauseIcon(false);
+}
+
+function changeVolume(val){
+    currentVolume=parseInt(val);isMuted=(currentVolume===0);updateVolumeIcon();
+    if(ytAudioPlayer&&ytAudioPlayer.setVolume)ytAudioPlayer.setVolume(currentVolume);
+    if(sunoAudioObject)sunoAudioObject.volume=currentVolume/100;
+}
+function updateVolumeIcon(){
+    const icon=document.getElementById('volume-icon');if(!icon)return;
+    icon.className='fa-solid cursor-pointer text-xs';
+    icon.classList.add(currentVolume===0||isMuted?'fa-volume-xmark':currentVolume<40?'fa-volume-off':currentVolume<75?'fa-volume-low':'fa-volume-high');
+}
+function toggleMute(){
+    const sl=document.getElementById('volume-slider');if(!sl)return;
+    if(isMuted){isMuted=false;currentVolume=preMutedVolume>0?preMutedVolume:15;sl.value=currentVolume;}
+    else{preMutedVolume=currentVolume;isMuted=true;currentVolume=0;sl.value=0;}
+    changeVolume(sl.value);
+}
+function updateMasterPlayPauseIcon(playing){
+    const btn=document.getElementById('master-play-pause-btn');
+    if(btn)btn.innerHTML=playing?'<i class="fa-solid fa-pause"></i>':'<i class="fa-solid fa-play"></i>';
+}
+function toggleMasterPlayPause(){
+    if(!currentPlayingMusicId){
+        const ml=document.querySelector(`#p${cur} .music-link`);
+        if(ml)ml.click();else showToast('현재 화에 음악이 없습니다.','info');
+        return;
+    }
+    if(currentPlayingType==='suno'&&sunoAudioObject){
+        if(sunoAudioObject.paused){sunoAudioObject.volume=currentVolume/100;sunoAudioObject.play();if(currentPlayingBtn)currentPlayingBtn.classList.add('playing');updateMasterPlayPauseIcon(true);}
+        else{sunoAudioObject.pause();if(currentPlayingBtn)currentPlayingBtn.classList.remove('playing');updateMasterPlayPauseIcon(false);}
+    }else if(currentPlayingType==='youtube'&&ytAudioPlayer){
+        const s=ytAudioPlayer.getPlayerState();
+        if(s===YT.PlayerState.PLAYING){ytAudioPlayer.pauseVideo();if(currentPlayingBtn)currentPlayingBtn.classList.remove('playing');updateMasterPlayPauseIcon(false);}
+        else{ytAudioPlayer.setVolume(currentVolume);ytAudioPlayer.playVideo();if(currentPlayingBtn)currentPlayingBtn.classList.add('playing');updateMasterPlayPauseIcon(true);}
+    }
+}
+function togglePlayMusic(url,btn){
+    const vid=extractVideoId(url),sid=extractSunoId(url);
+    if(!vid&&!sid){showToast('지원하지 않는 링크입니다.','error');return;}
+    const isSuno=!!sid,tid=isSuno?sid:vid;
+    if(currentPlayingMusicId===tid){
+        if(isSuno&&sunoAudioObject){if(sunoAudioObject.paused){sunoAudioObject.play();btn.classList.add('playing');updateMasterPlayPauseIcon(true);}else{sunoAudioObject.pause();btn.classList.remove('playing');updateMasterPlayPauseIcon(false);}}
+        else if(ytAudioPlayer){const s=ytAudioPlayer.getPlayerState();if(s===YT.PlayerState.PLAYING){ytAudioPlayer.pauseVideo();btn.classList.remove('playing');updateMasterPlayPauseIcon(false);}else{ytAudioPlayer.playVideo();btn.classList.add('playing');updateMasterPlayPauseIcon(true);}}
+        return;
+    }
+    resetMusicButtons();
+    currentPlayingMusicId=tid;currentPlayingBtn=btn;currentPlayingType=isSuno?'suno':'youtube';
+    btn.classList.add('playing');const di=btn.querySelector('.fa-compact-disc');if(di)di.classList.add('fa-spin');updateMasterPlayPauseIcon(true);
+    if(isSuno){
+        const isUUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sid);
+        if(!isUUID){
+            resetMusicButtons();
+            showToast('Suno 짧은 링크는 지원 안 돼요. Suno 주소창의 전체 URL을 복사해 주세요.','error');
+            return;
+        }
+        if(ytAudioPlayer&&ytAudioPlayer.pauseVideo)ytAudioPlayer.pauseVideo();
+        sunoAudioObject=new Audio(`https://cdn1.suno.ai/${sid}.mp3`);
+        sunoAudioObject.volume=currentVolume/100;
+        sunoAudioObject.play().catch(()=>resetMusicButtons());
+        sunoAudioObject.onended=resetMusicButtons;
+    }else{
+        if(ytAudioPlayer&&ytAudioPlayer.cueVideoById){ytAudioPlayer.cueVideoById(vid);setTimeout(()=>{ytAudioPlayer.setVolume(currentVolume);ytAudioPlayer.playVideo();},150);}
+        else{showToast('플레이어 준비 중입니다. 잠시 후 다시 눌러주세요.','error');resetMusicButtons();}
+    }
+}
+function extractVideoId(url){const m=url.match(/^.*(youtu.be\/|v\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/);return m&&m[2].length===11?m[2]:null;}
+function extractSunoId(url){const m=url.match(/suno\.com\/(?:song|input|s)\/([a-zA-Z0-9\-]+)/i);return m?m[1]:null;}
+</script>
+</body>
+</html>
