@@ -167,7 +167,7 @@
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen transition-colors duration-300">
-<script>if(new URLSearchParams(location.search).get('id')){document.write('<style>#author-header,#author-workspace,#author-footer{display:none!important}body{background:#f4f1eb!important}</style>');}</script>
+<script>if(new URLSearchParams(location.search).get('id')){document.write('<style id="hs">#author-header,#author-workspace,#author-footer{display:none!important}body{background:#f4f1eb!important}</style>');}</script>
 
 
 
@@ -902,7 +902,7 @@ function switchViewMode(mode) {
         buildReaderPages();
         resetMusicButtons();
         if (ytAudioPlayer && ytAudioPlayer.stopVideo) ytAudioPlayer.stopVideo();
-        setTimeout(checkAndTriggerBookmark, 150);
+        setTimeout(checkAndTriggerBookmark, 600);
     }
 }
 /* ════════════════════════════════════════════
@@ -916,6 +916,14 @@ function promptAuthorMode() {
     if (pw === null) return;
     if (pw === AUTHOR_PW) {
         isAuthorUnlocked = true;
+        // ?id= 로 접속 시 숨겨진 스타일 제거
+        const hs = document.getElementById('hs');
+        if (hs) hs.remove();
+        // author 요소 강제 표시
+        ['author-header','author-workspace','author-footer'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = '';
+        });
         switchViewMode('author');
     } else {
         alert('비밀번호가 틀렸습니다.');
