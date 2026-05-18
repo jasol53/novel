@@ -1400,11 +1400,11 @@ async function loadBookFromCloud(id){
             bookState.coverUrlStandard = data.coverUrlStandard || '';
             bookState.chapters = data.chapters || [];
             localStorage.setItem('newtokkinam_cloud_id', id);
-            // bookState 세팅 완료 후 UI 업데이트
-            document.getElementById('input-book-title').value = bookState.title;
-            document.getElementById('input-book-author').value = bookState.author;
-            document.getElementById('input-book-description').value = bookState.description;
-            updateBookInfo();
+            // 사이드바만 업데이트 (updateBookInfo 호출 금지 — input 값으로 덮어씌움)
+            const titleEl = document.getElementById('sb-book-title-el');
+            const authorEl = document.getElementById('sb-book-author-el');
+            if(titleEl) titleEl.textContent = bookState.title;
+            if(authorEl) authorEl.textContent = bookState.author + ' 지음';
             renderChapters();
             switchViewMode('reader');
             showToast(`"${bookState.title}" 로드 완료.`);
