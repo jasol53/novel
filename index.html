@@ -500,13 +500,14 @@ let preMutedVolume = 15;
 window.onload = function() {
     loadConfigAndInitialize();
     initDragAndDrop();
-    loadLocalBookState();
     const urlParams = new URLSearchParams(window.location.search);
     const cloudBookId = urlParams.get('id');
     if (cloudBookId) {
+        // 클라우드에서 불러올 때는 로컬 상태로 덮어쓰지 않음
         bookmarkState.activeBookId = cloudBookId;
         setTimeout(() => loadBookFromCloud(cloudBookId), 800);
     } else {
+        loadLocalBookState();
         renderChapters();
     }
     window.addEventListener('resize', () => {
@@ -1399,6 +1400,10 @@ async function loadBookFromCloud(id){
             bookState.coverUrlStandard = data.coverUrlStandard || '';
             bookState.chapters = data.chapters || [];
             localStorage.setItem('newtokkinam_cloud_id', id);
+            // bookState 세팅 완료 후 UI 업데이트
+            document.getElementById('input-book-title').value = bookState.title;
+            document.getElementById('input-book-author').value = bookState.author;
+            document.getElementById('input-book-description').value = bookState.description;
             updateBookInfo();
             renderChapters();
             switchViewMode('reader');
