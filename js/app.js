@@ -1327,6 +1327,7 @@ function mobSetupEvents() {
 
         const dx = e.clientX - startX;
         const dy = e.clientY - startY;
+
         prevX = lastX;
         prevMoveTime = lastMoveTime;
         lastX = e.clientX;
@@ -1341,36 +1342,29 @@ function mobSetupEvents() {
                 snapToCurrent(true);
                 return;
             }
+
             dragging = true;
         }
 
-        if (dragging) {
-            e.preventDefault();
+        if (!dragging) return;
 
-            let limitedDx = Math.max(-mobSlideW * 0.95, Math.min(mobSlideW * 0.95, dx));
+        e.preventDefault();
 
-            // 회차 경계에서는 다음/이전 화가 미리 보이지 않도록 둔탁한 벽처럼 저항을 준다.
-            if (dx < 0 && typeof mobIsLastPageOfChapter === 'function' && mobIsLastPageOfChapter(mobCurSlide)) {
-                limitedDx = Math.max(-mobSlideW * 0.10, dx * 0.16);
-            } else if (dx > 0 && typeof mobIsFirstPageOfChapter === 'function' && mobIsFirstPageOfChapter(mobCurSlide)) {
-                limitedDx = Math.min(mobSlideW * 0.10, dx * 0.16);
-            }
+        let limitedDx = Math.max(-mobSlideW * 0.95, Math.min(mobSlideW * 0.95, dx));
 
-            if (dx < 0 && mobIsLastPageOfChapter(mobCurSlide)) {
-                limitedDx = Math.max(-mobSlideW * 0.10, dx * 0.16);
-            } else if (dx > 0 && mobIsFirstPageOfChapter(mobCurSlide)) {
-                limitedDx = Math.min(mobSlideW * 0.10, dx * 0.16);
-            }
-
-            strip.style.transform = `translate3d(${-mobCurSlide * mobSlideW + limitedDx}px,0,0)`;
+        // 회차 경계에서는 다음/이전 화가 미리 보이지 않도록 약한 저항만 준다.
+        if (dx < 0 && typeof mobIsLastPageOfChapter === 'function' && mobIsLastPageOfChapter(mobCurSlide)) {
+            limitedDx = Math.max(-mobSlideW * 0.10, dx * 0.16);
+        } else if (dx > 0 && typeof mobIsFirstPageOfChapter === 'function' && mobIsFirstPageOfChapter(mobCurSlide)) {
+            limitedDx = Math.min(mobSlideW * 0.10, dx * 0.16);
         }
+
+        strip.style.transform = `translate3d(${-mobCurSlide * mobSlideW + limitedDx}px,0,0)`;
     }, { passive: false });
 
     strip.addEventListener('pointerup', e => {
         if (pointerId !== e.pointerId) return;
 
-        // iOS Safari에서는 pointerup 시점의 clientX가 마지막 pointermove 값과 다르게 잡혀
-        // 손을 뗐을 때 원위치로 복귀하는 경우가 있다. 그래서 마지막 move 좌표를 기준으로 판정한다.
         const dx = lastX - startX;
         const dy = e.clientY - startY;
         const dist = Math.hypot(dx, dy);
@@ -1389,10 +1383,7 @@ function mobSetupEvents() {
 
         if (!wasDragging) {
             snapToCurrent(true);
-            if (dist < 14 && !isControlTarget(e.target)) {
-                mobSuppressClickUntil = Date.now() + 450;
-                mobToggleUI();
-            }
+            // UI 토글은 click 이벤트에서 단독으로 처리 (여기서 호출하면 click과 중복됨)
             return;
         }
 
@@ -1415,26 +1406,36 @@ function mobSetupEvents() {
             targetIdx = mobCurSlide - 1;
         }
 
-        // 회차 경계에서는 바로 넘기지 않고 안내 팝업을 띄운다.
-        // 같은 회차 내부 페이지 이동은 즉시 처리한다.
         if (targetIdx !== mobCurSlide) {
-            if (targetIdx > mobCurSlide && typeof mobIsLastPageOfChapter === 'function' && mobIsLastPageOfChapter(mobCurSlide)) {
+            if (
+                targetIdx > mobCurSlide &&
+                typeof mobIsLastPageOfChapter === 'function' &&
+                mobIsLastPageOfChapter(mobCurSlide)
+            ) {
                 snapToCurrent(true);
+
                 if (typeof mobShowNextChapterPopup === 'function') {
                     mobShowNextChapterPopup(targetIdx);
                 } else {
                     mobGoToSlide(targetIdx, true);
                 }
+
                 return;
             }
 
-            if (targetIdx < mobCurSlide && typeof mobIsFirstPageOfChapter === 'function' && mobIsFirstPageOfChapter(mobCurSlide)) {
+            if (
+                targetIdx < mobCurSlide &&
+                typeof mobIsFirstPageOfChapter === 'function' &&
+                mobIsFirstPageOfChapter(mobCurSlide)
+            ) {
                 snapToCurrent(true);
+
                 if (typeof mobShowPrevChapterPopup === 'function') {
                     mobShowPrevChapterPopup(targetIdx);
                 } else {
                     mobGoToSlide(targetIdx, true);
                 }
+
                 return;
             }
         }
@@ -1448,31 +1449,35 @@ function mobSetupEvents() {
         snapToCurrent(true);
     }, { passive: true });
 
-    // 일부 iOS Safari는 pointerup 직후 합성 click을 만든다. 슬라이드 직후 click은 버린다.
     reader.addEventListener('click', e => {
         if (Date.now() < mobSuppressClickUntil) {
             e.preventDefault();
             e.stopPropagation();
             return;
         }
+
         if (isControlTarget(e.target)) return;
         if (!e.target.closest('#mob-strip, .mob-slide, .mob-slide-text')) return;
+
         mobToggleUI();
     }, true);
 
     if (!mobResizeBound) {
         mobResizeBound = true;
+
         const resizeMobileReader = () => {
             mobSlideW = window.innerWidth;
             mobSlideH = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
-            applyMobilePageMetrics();
+
             document.querySelectorAll('.mob-slide').forEach(s => {
                 s.style.width = mobSlideW + 'px';
                 s.style.height = mobSlideH + 'px';
             });
+
             strip.style.transition = 'none';
             strip.style.transform = `translate3d(${-mobCurSlide * mobSlideW}px,0,0)`;
         };
+
         window.addEventListener('resize', resizeMobileReader);
         if (window.visualViewport) window.visualViewport.addEventListener('resize', resizeMobileReader);
     }
