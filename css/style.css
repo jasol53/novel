@@ -190,11 +190,11 @@
         .mob-slide-text {
             width: 100%;
             height: 100%;
-            padding: calc(72px + env(safe-area-inset-top, 0px)) 24px calc(188px + env(safe-area-inset-bottom, 0px));
+            padding: calc(78px + env(safe-area-inset-top, 0px)) 24px calc(228px + env(safe-area-inset-bottom, 0px));
             overflow: hidden;
             font-family: var(--serif);
             font-size: 17px;
-            line-height: 2.08;
+            line-height: 1.86;
             color: var(--ink);
             word-break: keep-all;
             display: flex;
@@ -203,7 +203,7 @@
             box-sizing: border-box;
         }
         .mob-slide-text p {
-            margin-bottom: 0.72em;
+            margin-bottom: 0.48em;
             text-indent: 1em;
             text-align: left;
         }
@@ -215,8 +215,8 @@
             color: inherit !important; font-weight: inherit !important;
         }
         /* 특수 블록 모바일 최적화 */
-        .mob-slide-text .chat-block { font-size: 0.88em; }
-        .mob-slide-text .flashback-block { font-size: 0.92em; padding: 1em 1em; }
+        .mob-slide-text .chat-block { font-size: 0.86em; line-height:1.65; }
+        .mob-slide-text .flashback-block { font-size: 0.9em; padding: 0.9em 1em; line-height:1.75; }
         .mob-slide-text .scene-dots { margin: 1.5em 0 1.5em 1em !important; }
         .mob-slide-text .chapter-end-marker { margin: 2em auto 1em !important; font-size: 0.85em; }
         .mob-slide-text .illustration-block { max-width: 100%; }
@@ -388,6 +388,31 @@
             cursor: pointer;
         }
         .mob-font-val { font-family: var(--sans); font-size: 12px; color: var(--ink); min-width: 24px; text-align: right; }
+
+        /* Safari/mobile reader safe-area override: keep text away from browser bars and app controls.
+           JS still decides page chunks, so the CSS keeps actual rendered text shorter. */
+        @supports (height: 100dvh) {
+            #mob-reader { height: 100dvh; min-height: 100dvh; }
+            #mob-strip { height: 100dvh !important; }
+            .mob-slide { height: 100dvh !important; }
+        }
+        @supports (-webkit-touch-callout: none) {
+            .mob-slide-text {
+                padding-top: calc(84px + env(safe-area-inset-top, 0px)) !important;
+                padding-bottom: calc(248px + env(safe-area-inset-bottom, 0px)) !important;
+                line-height: 1.82 !important;
+            }
+            .mob-slide-text p { margin-bottom: 0.42em !important; }
+            .mob-slide-text .chapter-end-marker { margin-top: 1.2em !important; }
+        }
+        @media (max-height: 700px) {
+            .mob-slide-text {
+                padding-top: calc(72px + env(safe-area-inset-top, 0px)) !important;
+                padding-bottom: calc(218px + env(safe-area-inset-bottom, 0px)) !important;
+                line-height: 1.76 !important;
+            }
+            .mob-slide-text p { margin-bottom: 0.36em !important; }
+        }
 
         /* 목차 시트 */
         #mob-toc-sheet {
