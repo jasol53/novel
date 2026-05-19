@@ -50,31 +50,32 @@ let preMutedVolume = 15;
 /* ════════════════════════════════════════════
    INIT
    ════════════════════════════════════════════ */
-window.onload = function() {
-    loadConfigAndInitialize();
+window.onload = async function() {
+    await loadConfigAndInitialize();
+
     initDragAndDrop();
+
     const urlParams = new URLSearchParams(window.location.search);
     const cloudBookId = urlParams.get('id');
+
     if (cloudBookId) {
         bookmarkState.activeBookId = cloudBookId;
-        firebase.auth().onAuthStateChanged(user => {
-            if (user) {
-                db = firebase.firestore();
-                isFirebaseConnected = true;
-                setBadge('ok', '뉴토끼남 클라우드 연동');
-                loadBookFromCloud(cloudBookId);
-            }
-        });
+
+        if (isFirebaseConnected && db) {
+            loadBookFromCloud(cloudBookId);
+        } else {
+            setBadge('err', '연결 실패: Firebase 초기화 실패');
+        }
     } else {
         loadLocalBookState();
         renderChapters();
         switchViewMode('author');
     }
+
     window.addEventListener('resize', () => {
         if (bookState.viewMode === 'reader') updateDynamicCoverOnResize();
     });
 };
-
 /* ════════════════════════════════════════════
    FIREBASE
    ════════════════════════════════════════════ */
