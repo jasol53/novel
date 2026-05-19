@@ -395,41 +395,59 @@ function sanitizeAndFormatBold(text) {
     return text;
 }
 
+function escapeAttrValue(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
 function parseSpecialBlocks(text) {
-    text = text.replace(/\[lyrics\]([\s\S]*?)\[\/lyrics\]/g, (_, c) => {
+    // 닫는 태그는 [/tag]와 [／tag] 둘 다 허용
+    text = text.replace(/\[lyrics\]([\s\S]*?)\[(?:\/|／)lyrics\]/g, (_, c) => {
         const inner = c.trim().split('\n').map(l => sanitizeAndFormatBold(l)).join('<br>');
         return `\n<div class="lyrics-block font-serif">${inner}</div>\n`;
     });
-    text = text.replace(/\[chat\]([\s\S]*?)\[\/chat\]/g, (_, c) => {
+
+    text = text.replace(/\[chat\]([\s\S]*?)\[(?:\/|／)chat\]/g, (_, c) => {
         const lines = c.trim().split('\n').map(line => {
             const ci = line.indexOf(':');
             if (ci !== -1) {
-                const sender = line.substring(0, ci).trim();
-                const msg = line.substring(ci+1).trim();
-                const cls = sender === '준환' ? 'chat-right' : 'chat-left';
+                const sender = sanitizeAndFormatBold(line.substring(0, ci).trim());
+                const msg = sanitizeAndFormatBold(line.substring(ci + 1).trim());
+                const cls = line.substring(0, ci).trim() === '준환' ? 'chat-right' : 'chat-left';
                 return `<div class="chat-line ${cls}"><span class="chat-sender">${sender}</span>: ${msg}</div>`;
             }
-            return `<div class="chat-line chat-left">${line.trim()}</div>`;
+            return `<div class="chat-line chat-left">${sanitizeAndFormatBold(line.trim())}</div>`;
         }).join('');
         return `\n<div class="chat-block">${lines}</div>\n`;
     });
-    text = text.replace(/\[flashback\]([\s\S]*?)\[\/flashback\]/g, (_, c) => {
+
+    text = text.replace(/\[flashback\]([\s\S]*?)\[(?:\/|／)flashback\]/g, (_, c) => {
         const inner = c.trim().split('\n').map(l => sanitizeAndFormatBold(l.trim())).filter(Boolean).join('<br>');
         return `\n<div class="flashback-block font-serif">${inner}</div>\n`;
     });
-    text = text.replace(/\[music=(.*?)\](.*?)\[\/music\]/g, (_, link, title) => {
+
+    text = text.replace(/\[music=(.*?)\]([\s\S]*?)\[(?:\/|／)music\]/g, (_, link, title) => {
         const clean = link.trim().replace(/"/g, '&quot;');
-        return `\n<div class="music-block"><a onclick="togglePlayMusic('${clean}', this)" class="music-link"><i class="fa-solid fa-compact-disc"></i> <span>${title.trim()}</span></a></div>\n`;
+        const attrUrl = escapeAttrValue(link.trim());
+        return `\n<div class="music-block"><a onclick="togglePlayMusic('${clean}', this)" data-music-url="${attrUrl}" class="music-link"><i class="fa-solid fa-compact-disc"></i> <span>${sanitizeAndFormatBold(title.trim())}</span></a></div>\n`;
     });
-    // [autoplay=링크]곡명[/autoplay] — 화 진입 시 자동재생, 버튼은 보임
-    text = text.replace(/\[autoplay=(.*?)\](.*?)\[\/autoplay\]/g, (_, link, title) => {
+
+    text = text.replace(/\[autoplay=(.*?)\]([\s\S]*?)\[(?:\/|／)autoplay\]/g, (_, link, title) => {
         const clean = link.trim().replace(/"/g, '&quot;');
-        return `\n<div class="music-block music-autoplay"><a onclick="togglePlayMusic('${clean}', this)" class="music-link" data-autoplay="true"><i class="fa-solid fa-compact-disc"></i> <span>${title.trim()}</span></a></div>\n`;
+        const attrUrl = escapeAttrValue(link.trim());
+        return `\n<div class="music-block music-autoplay"><a onclick="togglePlayMusic('${clean}', this)" data-music-url="${attrUrl}" data-autoplay="true" class="music-link"><i class="fa-solid fa-compact-disc"></i> <span>${sanitizeAndFormatBold(title.trim())}</span></a></div>\n`;
     });
-    text = text.replace(/\[image=(.*?)\]([\s\S]*?)\[\/image\]/g, (_, link, cap) => {
+
+    text = text.replace(/\[image=(.*?)\]([\s\S]*?)\[(?:\/|／)image\]/g, (_, link, cap) => {
         const clean = convertGoogleDriveLink(link.trim());
-        return `\n<div class="illustration-block"><img src="${clean}" alt="${cap.trim()}" class="illustration-img" onerror="this.parentElement.style.display='none'"><p class="illustration-caption">${cap.trim()}</p></div>\n`;
+        const safeCap = sanitizeAndFormatBold(cap.trim());
+        return `\n<div class="illustration-block"><img src="${escapeAttrValue(clean)}" alt="${escapeAttrValue(cap.trim())}" class="illustration-img" onerror="this.parentElement.style.display='none'"><p class="illustration-caption">${safeCap}</p></div>\n`;
     });
+
     return text;
 }
 
@@ -563,13 +581,13 @@ function splitChapterIntoMobPages(content) {
 
     // 특수 블록 패턴들
     const blockPatterns = [
-        /\[\[transition\]\][\s\S]*?\[\[\/transition\]\]/g,
-        /\[chat\][\s\S]*?\[\/chat\]/g,
-        /\[flashback\][\s\S]*?\[\/flashback\]/g,
-        /\[lyrics\][\s\S]*?\[\/lyrics\]/g,
-        /\[image=.*?\][\s\S]*?\[\/image\]/g,
-        /\[music=.*?\].*?\[\/music\]/g,
-        /\[autoplay=.*?\].*?\[\/autoplay\]/g,
+        /\[\[transition\]\][\s\S]*?\[\[(?:\/|／)transition\]\]/g,
+        /\[chat\][\s\S]*?\[(?:\/|／)chat\]/g,
+        /\[flashback\][\s\S]*?\[(?:\/|／)flashback\]/g,
+        /\[lyrics\][\s\S]*?\[(?:\/|／)lyrics\]/g,
+        /\[image=.*?\][\s\S]*?\[(?:\/|／)image\]/g,
+        /\[music=.*?\][\s\S]*?\[(?:\/|／)music\]/g,
+        /\[autoplay=.*?\][\s\S]*?\[(?:\/|／)autoplay\]/g,
     ];
 
     for (const pattern of blockPatterns) {
@@ -990,26 +1008,38 @@ function mobTryAutoPlayMusicOnPage() {
     if (!slide) return;
 
     const musicLink = slide.querySelector('.music-link');
+
+    // 현재 페이지에 음악 코드가 없으면 모바일 BGM은 정지
     if (!musicLink) {
-        if (currentPlayingMusicId) {
-            resetMusicButtons();
-        }
+        if (currentPlayingMusicId) resetMusicButtons();
         return;
     }
 
-    if (Date.now() < mobSuppressClickUntil) return;
+    const url = musicLink.dataset.musicUrl || (() => {
+        const onclickAttr = musicLink.getAttribute('onclick') || '';
+        const match = onclickAttr.match(/togglePlayMusic\('([\s\S]*?)'/);
+        return match ? match[1] : '';
+    })();
 
-    const onclickAttr = musicLink.getAttribute('onclick') || '';
-    const match = onclickAttr.match(/togglePlayMusic\('(.*?)'/);
+    if (!url) return;
 
-    if (!match) return;
+    const tid = extractSunoId(url) || extractVideoId(url);
+    if (!tid) return;
 
-    const url = match[1];
+    // 이미 같은 곡이 재생 중이면 버튼 상태만 현재 페이지 버튼으로 동기화
+    if (currentPlayingMusicId === tid) {
+        currentPlayingBtn = musicLink;
+        musicLink.classList.add('playing');
+        const icon = musicLink.querySelector('.fa-compact-disc');
+        if (icon) icon.classList.add('fa-spin');
+        updateMasterPlayPauseIcon(true);
+        return;
+    }
 
-    if (currentPlayingMusicId === url) return;
-
+    // .click()을 쓰지 않고 직접 호출해서 슬라이드/탭 이벤트와 충돌하지 않게 한다.
     togglePlayMusic(url, musicLink);
 }
+
 
 // Next chapter transition popup
 const NEXT_CHAPTER_DELAY_SEC = 3;
@@ -1059,29 +1089,23 @@ function mobShowNextChapterPopup(targetIdx) {
         document.body.appendChild(popup);
     }
 
+    const countEl = document.getElementById('mob-next-chapter-count');
+    if (countEl) countEl.textContent = remain;
+
     popup.classList.add('show');
 
-    const countEl = document.getElementById('mob-next-chapter-count');
-
     mobNextChapterCountdownTimer = setInterval(() => {
-        remain--;
+        remain -= 1;
 
         if (countEl) countEl.textContent = remain;
 
         if (remain <= 0) {
             mobCancelNextChapterPopup();
-            if (
-            targetIdx !== mobCurSlide &&
-            targetIdx > mobCurSlide &&
-            mobIsLastPageOfChapter(mobCurSlide)
-        ) {
-            mobShowNextChapterPopup(targetIdx);
-        } else {
-            mobGoToSlide(targetIdx, true);
-        }
+            mobGoToSlide(targetIdx, true, true);
         }
     }, 1000);
 }
+
 
 
 function mobSetupEvents() {
@@ -1254,9 +1278,25 @@ function mobSetupEvents() {
         if (window.visualViewport) window.visualViewport.addEventListener('resize', resizeMobileReader);
     }
 }
-function mobGoToSlide(idx, animate = true) {
+function mobGoToSlide(idx, animate = true, force = false) {
     if (idx < 0 || idx >= mobSlides.length) return;
 
+    // 회차 마지막 페이지에서 다음 회차로 넘어가려는 경우, 즉시 넘기지 않고 안내 팝업을 띄운다.
+    if (!force && idx > mobCurSlide && mobIsLastPageOfChapter(mobCurSlide)) {
+        const curSlide = mobSlides[mobCurSlide];
+        const targetSlide = mobSlides[idx];
+        if (curSlide && targetSlide && targetSlide.chapterIdx !== curSlide.chapterIdx) {
+            const strip = document.getElementById('mob-strip');
+            if (strip) {
+                strip.style.transition = 'transform 0.18s ease-out';
+                strip.style.transform = `translate3d(${-mobCurSlide * mobSlideW}px,0,0)`;
+            }
+            mobShowNextChapterPopup(idx);
+            return;
+        }
+    }
+
+    mobCancelNextChapterPopup();
     resetMusicButtons();
     mobCurSlide = idx;
 
@@ -1270,13 +1310,13 @@ function mobGoToSlide(idx, animate = true) {
     mobUpdateUI(slide);
     if (slide.chapterIdx >= 0) saveBookmark(idx, 0);
 
-    // 자동 음악 재생용 강제 .click()은 모바일에서 swipe 종료와 겹쳐 두 장 넘어감/토글 오작동을 만들 수 있어 비활성화.
-    // 음악은 독자가 직접 music-link를 눌러 재생한다.
-
+    // 모바일은 스크롤 트리거가 없으므로 해당 페이지 안에 [music]/[autoplay]가 있으면 자동 재생을 시도한다.
+    // .click() 대신 직접 호출하므로 두 장 슬라이드/탭 토글과 충돌하지 않는다.
     setTimeout(() => {
         mobTryAutoPlayMusicOnPage();
-    }, 220);
+    }, 260);
 }
+
 
 function mobUpdateUI(slide) {
     const ci = slide.chapterIdx;
