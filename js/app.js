@@ -502,7 +502,25 @@ function goHome() { if (isAuthorUnlocked) switchViewMode('author'); }
 /* ════════════════════════════════════════════
    MOBILE: 챕터를 300자 단위 페이지로 분할
    ════════════════════════════════════════════ */
-const MOB_CHARS_PER_PAGE = 300;
+// 모바일 페이지 분량은 기기 높이/폰트 크기/하단 UI 안전영역을 고려해 동적으로 계산한다.
+function getMobCharsPerPage() {
+    const vw = Math.max(320, window.innerWidth || 360);
+    const vh = Math.max(480, (window.visualViewport ? window.visualViewport.height : window.innerHeight) || 640);
+    const fs = mobFontSize || 17;
+
+    // Safari 하단 바 + 앱 하단 조작 UI가 본문을 가리는 문제를 피하기 위해
+    // 실제 표시 가능 높이를 보수적으로 잡는다.
+    const reservedTop = 36;
+    const reservedBottom = 132;
+    const usableH = Math.max(260, vh - reservedTop - reservedBottom);
+    const usableW = Math.max(240, vw - 48);
+
+    const lineH = fs * 2.0;
+    const lines = Math.max(8, Math.floor(usableH / lineH));
+    const charsPerLine = Math.max(12, Math.floor(usableW / (fs * 0.95)));
+
+    return Math.max(170, Math.min(320, Math.floor(lines * charsPerLine * 0.82)));
+}
 
 // 특수 블록 마커 (분할 시 통째로 유지)
 const BLOCK_MARKER = '\x01BLOCK\x01';
@@ -550,7 +568,7 @@ function splitChapterIntoMobPages(content) {
         if (isBlock || currentLen === 0) {
             currentPage.push(para);
             currentLen += paraLen;
-        } else if (currentLen + paraLen > MOB_CHARS_PER_PAGE) {
+        } else if (currentLen + paraLen > getMobCharsPerPage()) {
             // 초과 → 새 페이지로
             pages.push(currentPage.join('\n'));
             currentPage = [para];
@@ -826,8 +844,16 @@ let mobTouchDragging = false;
 let mobTouchScrolling = false;
 
 function mobBuildReader() {
-    const strip = document.getElementById('mob-strip');
+    let strip = document.getElementById('mob-strip');
     if (!strip) { console.error('mob-strip not found'); return; }
+
+    // 리더를 다시 빌드할 때 이전 터치/포인터 리스너까지 완전히 제거한다.
+    // Safari에서는 남은 리스너가 touchend 이후 한 번 더 실행되어 두 장씩 넘어가는 원인이 될 수 있다.
+    const freshStrip = strip.cloneNode(false);
+    strip.parentNode.replaceChild(freshStrip, strip);
+    strip = freshStrip;
+    mobEventsBound = false;
+
     strip.innerHTML = '';
     mobSlides = [];
     mobChapMap = [];
@@ -926,132 +952,145 @@ function mobFormatProse(rawContent, isFirstPage) {
 }
 
 function mobSetupEvents() {
+    const reader = document.getElementById('mob-reader');
     const strip = document.getElementById('mob-strip');
-    if (!strip) return;
+    if (!reader || !strip) return;
 
-    // mobBuildReader()가 여러 번 호출되어도 터치 이벤트는 한 번만 붙인다.
     if (mobEventsBound) return;
     mobEventsBound = true;
 
+    let pointerId = null;
     let startX = 0;
     let startY = 0;
+    let lastX = 0;
     let dragging = false;
     let lockedVertical = false;
-    let tracking = false;
+    let movedEnough = false;
 
-    const isControlTarget = (target) => {
-        return !!(target && target.closest(
-            '#mob-topbar, #mob-bottombar, #mob-toc-sheet, button, input, a, .music-link'
-        ));
+    const isControlTarget = (target) => !!(target && target.closest(
+        '#mob-topbar, #mob-bottombar, #mob-toc-sheet, button, input, a, .music-link'
+    ));
+
+    const snapToCurrent = (animate = true) => {
+        strip.style.transition = animate ? 'transform 0.22s ease-out' : 'none';
+        strip.style.transform = `translate3d(${-mobCurSlide * mobSlideW}px,0,0)`;
     };
 
-    const snapBack = () => {
-        strip.style.transition = 'transform 0.22s ease-out';
-        strip.style.transform = `translateX(${-mobCurSlide * mobSlideW}px)`;
-    };
-
-    strip.addEventListener('touchstart', e => {
-        if (isControlTarget(e.target)) return;
-        if (!e.touches || e.touches.length !== 1) return;
-
-        tracking = true;
+    const finishPointer = () => {
+        pointerId = null;
         dragging = false;
         lockedVertical = false;
-        startX = e.touches[0].clientX;
-        startY = e.touches[0].clientY;
+        movedEnough = false;
+    };
+
+    strip.addEventListener('pointerdown', e => {
+        if (isControlTarget(e.target)) return;
+        if (pointerId !== null) return;
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+        pointerId = e.pointerId;
+        startX = lastX = e.clientX;
+        startY = e.clientY;
+        dragging = false;
+        lockedVertical = false;
+        movedEnough = false;
         strip.style.transition = 'none';
+
+        try { strip.setPointerCapture(pointerId); } catch (_) {}
     }, { passive: true });
 
-    strip.addEventListener('touchmove', e => {
-        if (!tracking || lockedVertical) return;
-        if (!e.touches || e.touches.length !== 1) return;
+    strip.addEventListener('pointermove', e => {
+        if (pointerId !== e.pointerId) return;
 
-        const dx = e.touches[0].clientX - startX;
-        const dy = e.touches[0].clientY - startY;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        lastX = e.clientX;
 
-        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        if (!movedEnough && Math.abs(dx) < 7 && Math.abs(dy) < 7) return;
+        movedEnough = true;
 
-        if (!dragging) {
-            if (Math.abs(dy) > Math.abs(dx)) {
+        if (!dragging && !lockedVertical) {
+            if (Math.abs(dy) > Math.abs(dx) * 1.15) {
                 lockedVertical = true;
-                snapBack();
+                snapToCurrent(true);
                 return;
             }
             dragging = true;
         }
 
-        e.preventDefault();
-        strip.style.transform = `translateX(${-mobCurSlide * mobSlideW + dx}px)`;
+        if (dragging) {
+            e.preventDefault();
+            const limitedDx = Math.max(-mobSlideW * 0.95, Math.min(mobSlideW * 0.95, dx));
+            strip.style.transform = `translate3d(${-mobCurSlide * mobSlideW + limitedDx}px,0,0)`;
+        }
     }, { passive: false });
 
-    strip.addEventListener('touchend', e => {
-        if (!tracking) return;
-        tracking = false;
+    strip.addEventListener('pointerup', e => {
+        if (pointerId !== e.pointerId) return;
 
-        if (isControlTarget(e.target)) {
-            snapBack();
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        const dist = Math.hypot(dx, dy);
+        const wasDragging = dragging;
+        const wasVertical = lockedVertical;
+
+        try { strip.releasePointerCapture(pointerId); } catch (_) {}
+        finishPointer();
+
+        if (wasVertical) {
+            snapToCurrent(true);
             return;
         }
 
-        const touch = e.changedTouches && e.changedTouches[0];
-        if (!touch) {
-            snapBack();
-            return;
-        }
-
-        const dx = touch.clientX - startX;
-        const dy = touch.clientY - startY;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        if (!dragging) {
-            if (dist < 14 && !lockedVertical) {
-                mobSuppressClickUntil = Date.now() + 350;
+        if (!wasDragging) {
+            snapToCurrent(true);
+            if (dist < 14 && !isControlTarget(e.target)) {
+                mobSuppressClickUntil = Date.now() + 450;
                 mobToggleUI();
             }
-            snapBack();
             return;
         }
 
-        // touchend/click 중복으로 두 장 넘어가는 문제 방지
+        // 한 번의 제스처에서 목표 인덱스를 먼저 고정한다.
+        // mobCurSlide를 기준으로 두 번 계산하지 않게 해서 2페이지 점프를 막는다.
         if (mobSwipeLock) {
-            snapBack();
+            snapToCurrent(true);
             return;
         }
         mobSwipeLock = true;
-        mobSuppressClickUntil = Date.now() + 450;
-        setTimeout(() => { mobSwipeLock = false; }, 360);
+        mobSuppressClickUntil = Date.now() + 650;
+        setTimeout(() => { mobSwipeLock = false; }, 420);
 
-        const threshold = Math.min(90, Math.max(45, mobSlideW * 0.16));
+        const threshold = Math.min(96, Math.max(46, mobSlideW * 0.17));
+        let targetIdx = mobCurSlide;
 
-        if (dx < -threshold && mobCurSlide < mobSlides.length - 1) {
-            mobGoToSlide(mobCurSlide + 1);
-        } else if (dx > threshold && mobCurSlide > 0) {
-            mobGoToSlide(mobCurSlide - 1);
-        } else {
-            snapBack();
-        }
+        if (dx < -threshold) targetIdx = Math.min(mobSlides.length - 1, mobCurSlide + 1);
+        else if (dx > threshold) targetIdx = Math.max(0, mobCurSlide - 1);
+
+        mobGoToSlide(targetIdx, true);
     }, { passive: true });
 
-    strip.addEventListener('touchcancel', () => {
-        tracking = false;
-        dragging = false;
-        lockedVertical = false;
-        snapBack();
+    strip.addEventListener('pointercancel', e => {
+        if (pointerId !== e.pointerId) return;
+        finishPointer();
+        snapToCurrent(true);
     }, { passive: true });
 
-    strip.addEventListener('click', e => {
+    // 일부 iOS Safari는 pointerup 직후 합성 click을 만든다. 슬라이드 직후 click은 버린다.
+    reader.addEventListener('click', e => {
         if (Date.now() < mobSuppressClickUntil) {
             e.preventDefault();
             e.stopPropagation();
             return;
         }
         if (isControlTarget(e.target)) return;
+        if (!e.target.closest('#mob-strip, .mob-slide, .mob-slide-text')) return;
         mobToggleUI();
     }, true);
 
     if (!mobResizeBound) {
         mobResizeBound = true;
-        window.addEventListener('resize', () => {
+        const resizeMobileReader = () => {
             mobSlideW = window.innerWidth;
             mobSlideH = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
             document.querySelectorAll('.mob-slide').forEach(s => {
@@ -1059,8 +1098,10 @@ function mobSetupEvents() {
                 s.style.height = mobSlideH + 'px';
             });
             strip.style.transition = 'none';
-            strip.style.transform = `translateX(${-mobCurSlide * mobSlideW}px)`;
-        });
+            strip.style.transform = `translate3d(${-mobCurSlide * mobSlideW}px,0,0)`;
+        };
+        window.addEventListener('resize', resizeMobileReader);
+        if (window.visualViewport) window.visualViewport.addEventListener('resize', resizeMobileReader);
     }
 }
 function mobGoToSlide(idx, animate = true) {
@@ -1073,7 +1114,7 @@ function mobGoToSlide(idx, animate = true) {
     if (!strip) return;
 
     strip.style.transition = animate ? 'transform 0.22s ease-out' : 'none';
-    strip.style.transform = `translateX(${-idx * mobSlideW}px)`;
+    strip.style.transform = `translate3d(${-idx * mobSlideW}px,0,0)`;
 
     const slide = mobSlides[idx];
     mobUpdateUI(slide);
