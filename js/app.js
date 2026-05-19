@@ -1247,11 +1247,20 @@ function mobPlayMusicUrl(url) {
         if (ytAudioPlayer && ytAudioPlayer.pauseVideo) try { ytAudioPlayer.pauseVideo(); } catch(e) {}
         sunoAudioObject = new Audio(`https://cdn1.suno.ai/${sid}.mp3`);
         sunoAudioObject.volume = currentVolume / 100;
-        sunoAudioObject.play().catch(() => {});
+        sunoAudioObject.play().catch(err => {
+            // 브라우저 자동재생 정책으로 차단된 경우 조용히 무시
+            console.warn('Suno autoplay blocked:', err.message);
+        });
         sunoAudioObject.onended = () => {
             currentPlayingMusicId = null; currentPlayingType = null;
             currentPlayingBtn = null; updateMasterPlayPauseIcon(false);
             if (link && mobIsValidButtonNode(link)) link.classList.remove('playing');
+        };
+        sunoAudioObject.onerror = (e) => {
+            console.warn('Suno audio error:', e);
+            sunoAudioObject = null;
+            currentPlayingMusicId = null; currentPlayingType = null;
+            currentPlayingBtn = null; updateMasterPlayPauseIcon(false);
         };
         currentPlayingMusicId = sid;
         currentPlayingType = 'suno';
@@ -1503,18 +1512,22 @@ function mobSetupEvents() {
         }
     }, { passive: true });
 
-    reader.addEventListener('click', e => {
-        if (Date.now() < mobSuppressClickUntil) {
-            e.preventDefault();
-            e.stopPropagation();
-            return;
-        }
-
-        if (isControlTarget(e.target)) return;
-        if (!e.target.closest('#mob-strip, .mob-slide, .mob-slide-text')) return;
-
-        mobToggleUI();
-    }, true);
+    // 별도 readerClickBound 플래그로 reader click은 1회만 등록
+    if (!reader._clickBound) {
+        reader._clickBound = true;
+        reader.addEventListener('click', e => {
+            if (Date.now() < mobSuppressClickUntil) {
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+            }
+            // UI 바, 버튼, 팝업 영역 클릭은 무시
+            if (isControlTarget(e.target)) return;
+            if (e.target.closest('#mob-toc-sheet, #mob-next-chapter-popup')) return;
+            // mob-reader 내부 어디든 탭하면 토글
+            mobToggleUI();
+        }, false);
+    }
 
     if (!mobResizeBound) {
         mobResizeBound = true;
