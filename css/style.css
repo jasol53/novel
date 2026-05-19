@@ -190,7 +190,7 @@
         .mob-slide-text {
             width: 100%;
             height: 100%;
-            padding: calc(78px + env(safe-area-inset-top, 0px)) 24px calc(228px + env(safe-area-inset-bottom, 0px));
+            padding: calc(50px + env(safe-area-inset-top, 0px)) 24px calc(286px + env(safe-area-inset-bottom, 0px));
             overflow: hidden;
             font-family: var(--serif);
             font-size: 17px;
@@ -398,8 +398,8 @@
         }
         @supports (-webkit-touch-callout: none) {
             .mob-slide-text {
-                padding-top: calc(84px + env(safe-area-inset-top, 0px)) !important;
-                padding-bottom: calc(248px + env(safe-area-inset-bottom, 0px)) !important;
+                padding-top: calc(54px + env(safe-area-inset-top, 0px)) !important;
+                padding-bottom: calc(306px + env(safe-area-inset-bottom, 0px)) !important;
                 line-height: 1.82 !important;
             }
             .mob-slide-text p { margin-bottom: 0.42em !important; }
@@ -407,8 +407,8 @@
         }
         @media (max-height: 700px) {
             .mob-slide-text {
-                padding-top: calc(72px + env(safe-area-inset-top, 0px)) !important;
-                padding-bottom: calc(218px + env(safe-area-inset-bottom, 0px)) !important;
+                padding-top: calc(48px + env(safe-area-inset-top, 0px)) !important;
+                padding-bottom: calc(276px + env(safe-area-inset-bottom, 0px)) !important;
                 line-height: 1.76 !important;
             }
             .mob-slide-text p { margin-bottom: 0.36em !important; }
@@ -464,11 +464,22 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: flex-start;
+            justify-content: center;
             text-align: center;
-            padding: 60px 32px;
+            padding: calc(34px + env(safe-area-inset-top, 0px)) 32px calc(34px + env(safe-area-inset-bottom, 0px));
             height: 100%;
-            overflow-y: auto;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+        .mob-cover-slide > div:first-child {
+            width: min(62vw, 230px) !important;
+            margin-bottom: 20px !important;
+        }
+        @media (max-height: 700px) {
+            .mob-cover-slide { padding-top: 22px !important; padding-bottom: 22px !important; }
+            .mob-cover-slide > div:first-child { width: min(54vw, 190px) !important; margin-bottom: 14px !important; }
+            .mob-cover-slide h1 { font-size: 21px !important; margin-bottom: 6px !important; }
+            .mob-cover-slide p { margin-top: 14px !important; }
         }
         ::-webkit-scrollbar{width:6px;height:6px;}
         ::-webkit-scrollbar-track{background:transparent;}
