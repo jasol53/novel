@@ -228,30 +228,34 @@
         .mob-slide-text .illustration-block { max-width: 100%; }
         .mob-slide-text .music-block { padding-left: 0; }
 
-        /* 상단 UI 바 */
+        /* ── 상단 바 ── */
         #mob-topbar {
             position: fixed;
             top: 0; left: 0; right: 0;
-            height: 52px;
-            background: var(--paper);
+            background: rgba(253,250,243,0.97);
             border-bottom: 0.5px solid var(--border);
-            display: flex;
-            align-items: center;
-            padding: 0 14px;
-            gap: 8px;
             z-index: 210;
-            transform: translateY(-100%);
-            transition: transform 0.25s ease;
+            transform: translateY(-110%);
+            transition: transform 0.28s ease;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
         }
         #mob-topbar.visible { transform: translateY(0); }
+
+        .mob-topbar-row1 {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px 6px;
+            gap: 6px;
+        }
         .mob-tb-btn {
             background: none; border: none; cursor: pointer;
-            color: var(--ink2); width: 36px; height: 36px;
-            border-radius: 8px; font-size: 17px;
+            color: var(--ink2); width: 34px; height: 34px;
+            border-radius: 8px; font-size: 16px;
             display: flex; align-items: center; justify-content: center;
             flex-shrink: 0;
         }
-        #mob-tb-title {
+        .mob-tb-title-text {
             flex: 1;
             font-family: var(--sans);
             font-size: 13px;
@@ -262,67 +266,115 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        #mob-tb-pagenum {
-            font-family: var(--sans);
-            font-size: 12px;
-            color: var(--ink3);
+        .mob-tb-right {
+            display: flex;
+            align-items: center;
+            gap: 4px;
             flex-shrink: 0;
         }
+        .mob-topbar-row2 {
+            display: flex;
+            align-items: center;
+            padding: 4px 14px 12px;
+            gap: 8px;
+        }
+        .mob-ch-nav-btn {
+            background: none; border: none; cursor: pointer;
+            color: var(--ink2); width: 30px; height: 30px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; flex-shrink: 0;
+        }
+        .mob-ch-nav-btn:disabled { opacity: 0.2; pointer-events: none; }
+        .mob-ch-progress-wrap {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .mob-ch-label {
+            font-family: var(--sans);
+            font-size: 11px;
+            color: var(--accent);
+            font-weight: 600;
+            text-align: center;
+            letter-spacing: 0.04em;
+        }
+        .mob-ch-track {
+            height: 3px;
+            background: var(--border);
+            border-radius: 999px;
+            overflow: hidden;
+        }
+        .mob-ch-fill {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 999px;
+            transition: width 0.2s;
+        }
 
-        /* 하단 UI 바 */
+        /* ── 하단 바 ── */
         #mob-bottombar {
             position: fixed;
             bottom: 0; left: 0; right: 0;
-            background: var(--paper);
+            background: rgba(253,250,243,0.97);
             border-top: 0.5px solid var(--border);
-            padding: 10px 20px 20px;
+            padding: 10px 16px env(safe-area-inset-bottom, 12px);
             z-index: 210;
-            transform: translateY(100%);
-            transition: transform 0.25s ease;
+            transform: translateY(110%);
+            transition: transform 0.28s ease;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
         }
         #mob-bottombar.visible { transform: translateY(0); }
-        .mob-bb-row {
+        .mob-page-nav-row {
             display: flex;
             align-items: center;
-            justify-content: space-between;
             gap: 8px;
+            margin-bottom: 10px;
         }
-        .mob-bb-btn {
+        .mob-page-nav-btn {
             background: none;
             border: 0.5px solid var(--border);
             border-radius: 8px;
             cursor: pointer;
             font-family: var(--sans);
-            font-size: 13px;
+            font-size: 12px;
             color: var(--ink2);
-            padding: 8px 16px;
-            transition: all 0.15s;
+            padding: 7px 12px;
             white-space: nowrap;
+            display: flex; align-items: center; gap: 4px;
         }
-        .mob-bb-btn:disabled { opacity: 0.25; pointer-events: none; }
-        .mob-bb-btn:active { background: var(--border); }
-        .mob-chapter-dots {
-            display: flex;
-            gap: 6px;
-            align-items: center;
+        .mob-page-nav-btn:disabled { opacity: 0.2; pointer-events: none; }
+        .mob-page-nav-btn:active { background: var(--border); }
+        .mob-page-progress-wrap {
             flex: 1;
-            justify-content: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+        .mob-page-track {
+            width: 100%;
+            height: 3px;
+            background: var(--border);
+            border-radius: 999px;
             overflow: hidden;
         }
-        .mob-ch-dot {
-            width: 6px; height: 6px;
-            border-radius: 50%;
-            background: var(--border);
-            border: none; padding: 0; cursor: pointer;
-            transition: all 0.2s; flex-shrink: 0;
+        .mob-page-fill {
+            height: 100%;
+            background: var(--accent2);
+            border-radius: 999px;
+            transition: width 0.15s;
         }
-        .mob-ch-dot.active { background: var(--accent); transform: scale(1.4); }
-        /* 글자 크기 슬라이더 */
+        .mob-page-label {
+            font-family: var(--sans);
+            font-size: 11px;
+            color: var(--ink3);
+        }
         .mob-font-row {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 10px 0 2px;
+            gap: 8px;
         }
         .mob-font-label { font-family: var(--sans); font-size: 12px; color: var(--ink3); }
         .mob-font-slider {
@@ -617,26 +669,43 @@
     <!-- 슬라이드 스트립 -->
     <div id="mob-strip"></div>
 
-    <!-- 상단 바 -->
+    <!-- 상단 바: 목차 + 볼륨 + 화 정보 + 화 이동 -->
     <div id="mob-topbar">
-        <button class="mob-tb-btn" onclick="mobTocOpen()"><i class="fa-solid fa-bars"></i></button>
-        <span id="mob-tb-title">뷰어</span>
-        <span id="mob-tb-pagenum">1 / 1</span>
-        <button class="mob-tb-btn" onclick="promptAuthorMode()" title="작가모드"><i class="fa-solid fa-lock"></i></button>
+        <div class="mob-topbar-row1">
+            <button class="mob-tb-btn" onclick="mobTocOpen()"><i class="fa-solid fa-bars"></i></button>
+            <span id="mob-tb-title" class="mob-tb-title-text">뷰어</span>
+            <div class="mob-tb-right">
+                <i class="fa-solid fa-volume-low text-xs cursor-pointer" id="mob-volume-icon" onclick="toggleMute()" style="color:var(--ink3);"></i>
+                <input type="range" id="mob-volume-slider" min="0" max="100" value="15" oninput="changeVolume(this.value);document.getElementById('volume-slider').value=this.value;" style="-webkit-appearance:none;width:50px;height:3px;background:var(--border);border-radius:2px;outline:none;cursor:pointer;">
+                <button class="mob-tb-btn" id="mob-play-btn" onclick="toggleMasterPlayPause()" style="width:28px;height:28px;font-size:13px;"><i class="fa-solid fa-play"></i></button>
+                <button class="mob-tb-btn" onclick="promptAuthorMode()" style="width:28px;height:28px;font-size:14px;"><i class="fa-solid fa-lock"></i></button>
+            </div>
+        </div>
+        <div class="mob-topbar-row2">
+            <button class="mob-ch-nav-btn" id="mob-prev-ch" onclick="mobPrevChapter()"><i class="fa-solid fa-chevron-left"></i></button>
+            <div class="mob-ch-progress-wrap">
+                <div class="mob-ch-label" id="mob-ch-label">표지</div>
+                <div class="mob-ch-track"><div class="mob-ch-fill" id="mob-ch-fill" style="width:0%"></div></div>
+            </div>
+            <button class="mob-ch-nav-btn" id="mob-next-ch" onclick="mobNextChapter()"><i class="fa-solid fa-chevron-right"></i></button>
+        </div>
     </div>
 
-    <!-- 하단 바 -->
+    <!-- 하단 바: 페이지 이동 + 페이지 프로그레스 + 글자크기 -->
     <div id="mob-bottombar">
-        <div class="mob-bb-row">
-            <button class="mob-bb-btn" id="mob-prev-ch" onclick="mobPrevChapter()">← 이전화</button>
-            <div class="mob-chapter-dots" id="mob-ch-dots"></div>
-            <button class="mob-bb-btn" id="mob-next-ch" onclick="mobNextChapter()">다음화 →</button>
+        <div class="mob-page-nav-row">
+            <button class="mob-page-nav-btn" id="mob-prev-page" onclick="mobGoToSlide(mobCurSlide-1)"><i class="fa-solid fa-chevron-left"></i> 이전</button>
+            <div class="mob-page-progress-wrap">
+                <div class="mob-page-track"><div class="mob-page-fill" id="mob-page-fill" style="width:0%"></div></div>
+                <span class="mob-page-label" id="mob-page-label">1 / 1</span>
+            </div>
+            <button class="mob-page-nav-btn" id="mob-next-page" onclick="mobGoToSlide(mobCurSlide+1)">다음 <i class="fa-solid fa-chevron-right"></i></button>
         </div>
         <div class="mob-font-row">
-            <span class="mob-font-label">가</span>
+            <span class="mob-font-label" style="font-size:13px;">가</span>
             <input type="range" class="mob-font-slider" id="mob-font-slider" min="13" max="22" value="17" oninput="mobSetFont(this.value)">
             <span class="mob-font-val" id="mob-font-val">17</span>
-            <span class="mob-font-label" style="font-size:16px;">가</span>
+            <span class="mob-font-label" style="font-size:17px;">가</span>
         </div>
     </div>
 
@@ -1562,15 +1631,18 @@ function mobBuildReader() {
     const coverSlide = document.createElement('div');
     coverSlide.className = 'mob-slide';
     coverSlide.style.width = mobSlideW + 'px';
-    coverSlide.style.height = '100vh';
+    coverSlide.style.height = '100dvh';
+    const coverImgHtml = info.url
+        ? `<div style="width:min(72vw,280px);aspect-ratio:10/16;border-radius:14px;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,0.28);margin-bottom:28px;flex-shrink:0;"><img src="${info.url}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.style.display='none'"></div>`
+        : `<div style="font-size:52px;margin-bottom:28px;color:var(--accent2)">❧</div>`;
     coverSlide.innerHTML = `
         <div class="mob-cover-slide">
-            ${info.url ? `<div style="width:200px;height:320px;border-radius:12px;overflow:hidden;box-shadow:0 16px 32px rgba(0,0,0,0.2);margin-bottom:28px;"><img src="${info.url}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.style.display='none'"></div>` : '<div style="font-size:48px;margin-bottom:28px;color:var(--accent2)">❧</div>'}
-            <h1 style="font-family:var(--serif);font-size:26px;font-weight:700;color:var(--ink);line-height:1.3;margin-bottom:12px;">${bookState.title}</h1>
-            <p style="font-size:13px;color:var(--ink3);line-height:1.7;margin-bottom:24px;font-style:italic;">${bookState.description || ''}</p>
-            <div style="width:36px;height:1px;background:var(--accent2);margin:0 auto 16px;"></div>
-            <p style="font-family:var(--sans);font-size:13px;color:var(--ink2);">${bookState.author} 지음</p>
-            <p style="font-family:var(--sans);font-size:11px;color:var(--ink3);margin-top:36px;animation:pulse 2s ease-in-out infinite;">← 스와이프 →</p>
+            ${coverImgHtml}
+            <h1 style="font-family:var(--serif);font-size:24px;font-weight:700;color:var(--ink);line-height:1.3;margin-bottom:10px;">${bookState.title}</h1>
+            <p style="font-size:12px;color:var(--ink3);line-height:1.7;margin-bottom:20px;font-style:italic;max-width:260px;">${bookState.description || ''}</p>
+            <div style="width:32px;height:1px;background:var(--accent2);margin:0 auto 14px;"></div>
+            <p style="font-family:var(--sans);font-size:12px;color:var(--ink2);">${bookState.author} 지음</p>
+            <p style="font-family:var(--sans);font-size:11px;color:var(--ink3);margin-top:28px;animation:pulse 2s ease-in-out infinite;">← 스와이프 →</p>
         </div>`;
     strip.appendChild(coverSlide);
     mobSlides.push({ type: 'cover', chapterIdx: -1, pageInChapter: 0, totalInChapter: 1, hasMusicBlock: false });
@@ -1589,7 +1661,7 @@ function mobBuildReader() {
             const slide = document.createElement('div');
             slide.className = 'mob-slide';
             slide.style.width = mobSlideW + 'px';
-            slide.style.height = '100vh';
+            slide.style.height = '100dvh';
             slide.innerHTML = `<div class="mob-slide-text" style="font-size:${mobFontSize}px;">${htmlContent}${isLast ? '<div class="chapter-end-marker" style="font-size:0.8em;margin-top:1.5em!important;">— 제'+(ci+1)+'화 끝 —</div>' : ''}</div>`;
             strip.appendChild(slide);
             mobSlides.push({ type: 'chapter', chapterIdx: ci, pageInChapter: pi, totalInChapter: total, hasMusicBlock, chapterTitle: ch.title });
@@ -1602,6 +1674,11 @@ function mobBuildReader() {
     mobBuildChDots();
     mobGoToSlide(0, false);
     mobRestoreBookmark();
+    // 볼륨 슬라이더 동기화
+    const mobVSlider = document.getElementById('mob-volume-slider');
+    if (mobVSlider) mobVSlider.value = currentVolume;
+    document.getElementById('mob-font-val').textContent = mobFontSize;
+    document.getElementById('mob-font-slider').value = mobFontSize;
 }
 
 // 모바일 전용 prose 포맷 (드롭캡 없음, left align)
@@ -1638,107 +1715,150 @@ function mobSetupEvents() {
     const strip = document.getElementById('mob-strip');
     const reader = document.getElementById('mob-reader');
 
-    // 탭으로 UI 토글
-    reader.addEventListener('click', e => {
-        // 버튼 클릭은 무시
-        if (e.target.closest('button') || e.target.closest('input') || e.target.closest('#mob-topbar') || e.target.closest('#mob-bottombar') || e.target.closest('#mob-toc-sheet')) return;
-        mobToggleUI();
-    });
-
-    // 터치 스와이프
+    // 탭으로 UI 토글 (touchend 기반 — 스와이프와 구분)
+    let tapStartX = 0, tapStartY = 0, tapMoved = false;
     reader.addEventListener('touchstart', e => {
+        tapStartX = e.touches[0].clientX;
+        tapStartY = e.touches[0].clientY;
+        tapMoved = false;
         mobTouchStartX = e.touches[0].clientX;
         mobTouchStartY = e.touches[0].clientY;
         mobTouchDragging = false;
         mobTouchScrolling = false;
-        strip.classList.add('no-anim');
     }, { passive: true });
 
     reader.addEventListener('touchmove', e => {
-        if (mobTouchScrolling) return;
         const dx = e.touches[0].clientX - mobTouchStartX;
         const dy = e.touches[0].clientY - mobTouchStartY;
-        if (!mobTouchDragging && Math.abs(dy) > Math.abs(dx) * 1.5) { mobTouchScrolling = true; return; }
-        if (Math.abs(dx) > 6) {
+        if (Math.abs(dx) > 6 || Math.abs(dy) > 6) tapMoved = true;
+        if (mobTouchScrolling) return;
+        if (!mobTouchDragging && Math.abs(dy) > Math.abs(dx) * 1.5 && Math.abs(dy) > 8) {
+            mobTouchScrolling = true; return;
+        }
+        if (Math.abs(dx) > 8) {
             mobTouchDragging = true;
-            const baseOffset = -mobCurSlide * mobSlideW;
-            strip.style.transform = `translateX(${baseOffset + dx}px)`;
+            // 실시간 슬라이드 (애니메이션 없이)
+            const base = -mobCurSlide * mobSlideW;
+            strip.style.transition = 'none';
+            strip.style.transform = `translateX(${base + dx}px)`;
         }
     }, { passive: true });
 
     reader.addEventListener('touchend', e => {
-        strip.classList.remove('no-anim');
-        if (!mobTouchDragging) return;
         const dx = e.changedTouches[0].clientX - mobTouchStartX;
-        if (dx < -50 && mobCurSlide < mobSlides.length - 1) mobGoToSlide(mobCurSlide + 1);
-        else if (dx > 50 && mobCurSlide > 0) mobGoToSlide(mobCurSlide - 1);
-        else mobGoToSlide(mobCurSlide); // snap back
+        const dy = e.changedTouches[0].clientY - mobTouchStartY;
+
+        if (!tapMoved && !e.target.closest('button') && !e.target.closest('input') &&
+            !e.target.closest('#mob-topbar') && !e.target.closest('#mob-bottombar') &&
+            !e.target.closest('#mob-toc-sheet')) {
+            mobToggleUI();
+            return;
+        }
+
+        if (mobTouchDragging) {
+            strip.style.transition = '';
+            if (dx < -50 && mobCurSlide < mobSlides.length - 1) {
+                mobGoToSlide(mobCurSlide + 1, true);
+            } else if (dx > 50 && mobCurSlide > 0) {
+                mobGoToSlide(mobCurSlide - 1, true);
+            } else {
+                // 스냅백
+                strip.style.transform = `translateX(${-mobCurSlide * mobSlideW}px)`;
+            }
+        }
     }, { passive: true });
 
     window.addEventListener('resize', () => {
         mobSlideW = window.innerWidth;
         document.querySelectorAll('.mob-slide').forEach(s => { s.style.width = mobSlideW + 'px'; });
-        mobGoToSlide(mobCurSlide, false);
+        strip.style.transition = 'none';
+        strip.style.transform = `translateX(${-mobCurSlide * mobSlideW}px)`;
     });
 }
 
-function mobGoToSlide(idx, animate = true) {
+function mobGoToSlide(idx, withSnap = false) {
     if (idx < 0 || idx >= mobSlides.length) return;
     resetMusicButtons();
     mobCurSlide = idx;
     const strip = document.getElementById('mob-strip');
-    if (!animate) strip.classList.add('no-anim');
+    // withSnap=true: 스와이프 후 스냅 (짧은 전환), false: 즉시
+    strip.style.transition = withSnap ? 'transform 0.22s ease-out' : 'none';
     strip.style.transform = `translateX(${-idx * mobSlideW}px)`;
-    if (!animate) requestAnimationFrame(() => strip.classList.remove('no-anim'));
 
     const slide = mobSlides[idx];
     mobUpdateUI(slide);
 
-    // 책갈피 저장
-    if (slide.chapterIdx >= 0) {
-        saveBookmark(idx, 0);
-    }
+    if (slide.chapterIdx >= 0) saveBookmark(idx, 0);
 
-    // music 자동재생
     setTimeout(() => {
         if (slide.hasMusicBlock && !currentPlayingMusicId) {
-            const el = document.querySelectorAll('.mob-slide')[idx];
-            if (el) { const ml = el.querySelector('.music-link'); if (ml) ml.click(); }
+            const slides = document.querySelectorAll('.mob-slide');
+            if (slides[idx]) { const ml = slides[idx].querySelector('.music-link'); if (ml) ml.click(); }
         }
-    }, 200);
+    }, 300);
 }
 
 function mobUpdateUI(slide) {
-    // 제목
-    const titleEl = document.getElementById('mob-tb-title');
-    if (slide.type === 'cover') {
-        titleEl.textContent = bookState.title;
-    } else {
-        titleEl.textContent = `${slide.chapterIdx + 1}화 — ${slide.chapterTitle}`;
-    }
-
-    // 페이지 번호
-    const numEl = document.getElementById('mob-tb-pagenum');
-    if (slide.type === 'cover') {
-        numEl.textContent = '';
-    } else {
-        numEl.textContent = `${slide.pageInChapter + 1} / ${slide.totalInChapter}`;
-    }
-
-    // 챕터 이전/다음 버튼
     const ci = slide.chapterIdx;
-    document.getElementById('mob-prev-ch').disabled = (ci <= 0 && slide.type !== 'chapter') || (ci < 0);
-    document.getElementById('mob-next-ch').disabled = ci >= bookState.chapters.length - 1 && slide.pageInChapter >= slide.totalInChapter - 1;
+    const isCover = slide.type === 'cover';
 
-    // 챕터 도트
-    document.querySelectorAll('.mob-ch-dot').forEach((d, i) => {
-        d.classList.toggle('active', i === ci + 1);
-    });
+    // 상단: 제목
+    const titleEl = document.getElementById('mob-tb-title');
+    if (titleEl) titleEl.textContent = isCover ? bookState.title : `${ci + 1}화 — ${slide.chapterTitle}`;
+
+    // 상단: 챕터 라벨 + 프로그레스
+    const chLabel = document.getElementById('mob-ch-label');
+    const chFill = document.getElementById('mob-ch-fill');
+    if (isCover) {
+        if (chLabel) chLabel.textContent = '표지';
+        if (chFill) chFill.style.width = '0%';
+    } else {
+        const total = bookState.chapters.length;
+        const pct = total > 0 ? Math.round(((ci + 1) / total) * 100) : 0;
+        if (chLabel) chLabel.textContent = `${ci + 1}화 / 전체 ${total}화`;
+        if (chFill) chFill.style.width = pct + '%';
+    }
+
+    // 상단: 챕터 이전/다음
+    const prevCh = document.getElementById('mob-prev-ch');
+    const nextCh = document.getElementById('mob-next-ch');
+    if (prevCh) prevCh.disabled = ci < 0;
+    if (nextCh) nextCh.disabled = ci >= bookState.chapters.length - 1;
+
+    // 하단: 페이지 라벨 + 프로그레스
+    const pageLabel = document.getElementById('mob-page-label');
+    const pageFill = document.getElementById('mob-page-fill');
+    const prevPg = document.getElementById('mob-prev-page');
+    const nextPg = document.getElementById('mob-next-page');
+
+    if (isCover) {
+        if (pageLabel) pageLabel.textContent = '';
+        if (pageFill) pageFill.style.width = '0%';
+        if (prevPg) prevPg.disabled = true;
+        if (nextPg) nextPg.disabled = mobSlides.length <= 1;
+    } else {
+        const pi = slide.pageInChapter;
+        const total = slide.totalInChapter;
+        const pct = total > 1 ? Math.round((pi / (total - 1)) * 100) : 100;
+        if (pageLabel) pageLabel.textContent = `${pi + 1} / ${total}`;
+        if (pageFill) pageFill.style.width = pct + '%';
+        if (prevPg) prevPg.disabled = mobCurSlide <= 0;
+        if (nextPg) nextPg.disabled = mobCurSlide >= mobSlides.length - 1;
+    }
 
     // 목차 활성
     document.querySelectorAll('.mob-toc-item').forEach((el, i) => {
         el.classList.toggle('active', i === ci + 1);
     });
+
+    // 볼륨 아이콘 동기화
+    const mobVIcon = document.getElementById('mob-volume-icon');
+    if (mobVIcon) {
+        mobVIcon.className = 'fa-solid cursor-pointer text-xs';
+        mobVIcon.classList.add(currentVolume === 0 || isMuted ? 'fa-volume-xmark' : 'fa-volume-low');
+    }
+    const mobPlayBtn = document.getElementById('mob-play-btn');
+    if (mobPlayBtn) updateMasterPlayPauseIcon(!!currentPlayingMusicId);
 }
 
 function mobToggleUI() {
@@ -2247,6 +2367,13 @@ function changeVolume(val){
     if(sunoAudioObject)sunoAudioObject.volume=currentVolume/100;
 }
 function updateVolumeIcon(){
+    const mobVIcon = document.getElementById('mob-volume-icon');
+    if (mobVIcon) {
+        mobVIcon.className = 'fa-solid cursor-pointer text-xs';
+        mobVIcon.classList.add(currentVolume===0||isMuted?'fa-volume-xmark':currentVolume<40?'fa-volume-off':currentVolume<75?'fa-volume-low':'fa-volume-high');
+    }
+    const mobSlider = document.getElementById('mob-volume-slider');
+    if (mobSlider) mobSlider.value = currentVolume;
     const icon=document.getElementById('volume-icon');if(!icon)return;
     icon.className='fa-solid cursor-pointer text-xs';
     icon.classList.add(currentVolume===0||isMuted?'fa-volume-xmark':currentVolume<40?'fa-volume-off':currentVolume<75?'fa-volume-low':'fa-volume-high');
