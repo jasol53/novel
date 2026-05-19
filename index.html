@@ -200,7 +200,7 @@
         .mob-slide-text {
             width: 100%;
             height: 100%;
-            padding: 28px 24px env(safe-area-inset-bottom, 20px);
+            padding: 28px 24px 40px;
             overflow: hidden;
             font-family: var(--serif);
             font-size: 17px;
@@ -1629,7 +1629,7 @@ function mobBuildReader() {
     mobSlides = [];
     mobChapMap = [];
     mobSlideW = window.innerWidth;
-    mobSlideH = window.innerHeight;
+    mobSlideH = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
     mobCurSlide = 0;
 
     // strip 너비 설정
@@ -1727,63 +1727,66 @@ function mobSetupEvents() {
     const reader = document.getElementById('mob-reader');
     if (!strip || !reader) return;
 
-    let startX = 0, startY = 0, dragging = false, dragLocked = false;
+    // 투명 오버레이로 터치 이벤트 수집 (strip 위에 올라가지 않게)
+    const overlay = document.createElement('div');
+    overlay.id = 'mob-touch-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:205;touch-action:none;pointer-events:auto;';
+    reader.appendChild(overlay);
 
-    reader.addEventListener('touchstart', e => {
-        if (e.target.closest('#mob-topbar') || e.target.closest('#mob-bottombar') || e.target.closest('#mob-toc-sheet')) return;
+    let startX = 0, startY = 0, dragging = false, locked = false;
+
+    overlay.addEventListener('touchstart', e => {
         startX = e.touches[0].clientX;
         startY = e.touches[0].clientY;
         dragging = false;
-        dragLocked = false;
+        locked = false;
         strip.style.transition = 'none';
     }, { passive: true });
 
-    reader.addEventListener('touchmove', e => {
-        if (e.target.closest('#mob-topbar') || e.target.closest('#mob-bottombar') || e.target.closest('#mob-toc-sheet')) return;
-        if (dragLocked) return; // 수직으로 판정된 경우 무시
+    overlay.addEventListener('touchmove', e => {
+        if (locked) return;
         const dx = e.touches[0].clientX - startX;
         const dy = e.touches[0].clientY - startY;
-        // 아직 방향 미판정
-        if (!dragging && Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-        // 수직 우세 → 가로 드래그 잠금
-        if (!dragging && Math.abs(dy) > Math.abs(dx)) { dragLocked = true; return; }
-        dragging = true;
+        if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+        if (!dragging) {
+            if (Math.abs(dy) > Math.abs(dx)) { locked = true; return; }
+            dragging = true;
+        }
         e.preventDefault();
         strip.style.transform = `translateX(${-mobCurSlide * mobSlideW + dx}px)`;
     }, { passive: false });
 
-    reader.addEventListener('touchend', e => {
-        if (e.target.closest('#mob-topbar') || e.target.closest('#mob-bottombar') || e.target.closest('#mob-toc-sheet')) return;
+    overlay.addEventListener('touchend', e => {
         const dx = e.changedTouches[0].clientX - startX;
         const dy = e.changedTouches[0].clientY - startY;
-        const dist = Math.sqrt(dx * dx + dy * dy);
+        const dist = Math.sqrt(dx*dx + dy*dy);
 
         if (!dragging) {
-            // 탭: 손가락이 거의 안 움직인 경우
-            if (dist < 12 && !e.target.closest('button') && !e.target.closest('input')) {
-                mobToggleUI();
+            if (dist < 10) mobToggleUI();
+            else {
+                strip.style.transition = 'transform 0.22s ease-out';
+                strip.style.transform = `translateX(${-mobCurSlide * mobSlideW}px)`;
             }
-            // 움직임이 있었지만 수직이면 그냥 복귀
-            strip.style.transition = 'transform 0.2s ease-out';
-            strip.style.transform = `translateX(${-mobCurSlide * mobSlideW}px)`;
             return;
         }
 
-        // 가로 스와이프
         if (dx < -50 && mobCurSlide < mobSlides.length - 1) {
             mobGoToSlide(mobCurSlide + 1);
         } else if (dx > 50 && mobCurSlide > 0) {
             mobGoToSlide(mobCurSlide - 1);
         } else {
-            strip.style.transition = 'transform 0.2s ease-out';
+            strip.style.transition = 'transform 0.22s ease-out';
             strip.style.transform = `translateX(${-mobCurSlide * mobSlideW}px)`;
         }
     }, { passive: true });
 
     window.addEventListener('resize', () => {
         mobSlideW = window.innerWidth;
-        mobSlideH = window.innerHeight;
-        document.querySelectorAll('.mob-slide').forEach(s => { s.style.width = mobSlideW + 'px'; s.style.height = mobSlideH + 'px'; });
+        mobSlideH = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
+        document.querySelectorAll('.mob-slide').forEach(s => {
+            s.style.width = mobSlideW + 'px';
+            s.style.height = mobSlideH + 'px';
+        });
         strip.style.transition = 'none';
         strip.style.transform = `translateX(${-mobCurSlide * mobSlideW}px)`;
     });
