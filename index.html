@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>뉴토끼남 - 나만의 내러티브 E-Book</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -166,12 +166,18 @@
         /* 전체화면 슬라이드 컨테이너 */
         #mob-reader {
             position: fixed;
-            inset: 0;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             background: var(--paper);
             z-index: 200;
             display: none;
             overflow: hidden;
             touch-action: none;
+            /* safe area */
+            padding-top: env(safe-area-inset-top, 0px);
+            padding-bottom: env(safe-area-inset-bottom, 0px);
         }
         #mob-reader.active { display: block; }
 
@@ -207,6 +213,7 @@
             display: flex;
             flex-direction: column;
             justify-content: flex-start;
+            box-sizing: border-box;
         }
         .mob-slide-text p {
             margin-bottom: 0.9em;
@@ -231,7 +238,8 @@
         /* ── 상단 바 ── */
         #mob-topbar {
             position: fixed;
-            top: 0; left: 0; right: 0;
+            top: env(safe-area-inset-top, 0px);
+            left: 0; right: 0;
             background: rgba(253,250,243,0.97);
             border-bottom: 0.5px solid var(--border);
             z-index: 210;
@@ -318,7 +326,7 @@
             bottom: 0; left: 0; right: 0;
             background: rgba(253,250,243,0.97);
             border-top: 0.5px solid var(--border);
-            padding: 10px 16px env(safe-area-inset-bottom, 12px);
+            padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
             z-index: 210;
             transform: translateY(110%);
             transition: transform 0.28s ease;
@@ -1617,6 +1625,7 @@ let mobTouchScrolling = false;
 
 function mobBuildReader() {
     const strip = document.getElementById('mob-strip');
+    if (!strip) { console.error('mob-strip not found'); return; }
     strip.innerHTML = '';
     mobSlides = [];
     mobChapMap = [];
@@ -1714,6 +1723,7 @@ function mobFormatProse(rawContent, isFirstPage) {
 function mobSetupEvents() {
     const strip = document.getElementById('mob-strip');
     const reader = document.getElementById('mob-reader');
+    if (!strip || !reader) return;
 
     let startX = 0, startY = 0, moved = false, dragging = false, currentX = 0;
 
@@ -1881,6 +1891,7 @@ function mobNextChapter() {
 
 function mobBuildToc() {
     const list = document.getElementById('mob-toc-list');
+    if (!list) return;
     let html = `<button class="mob-toc-item" onclick="mobGoToSlide(0);mobTocClose()">표지</button>`;
     bookState.chapters.forEach((ch, i) => {
         html += `<button class="mob-toc-item" onclick="mobGoToSlide(${mobChapMap[i]});mobTocClose()">${i+1}화 — ${ch.title}</button>`;
@@ -1890,8 +1901,8 @@ function mobBuildToc() {
 
 function mobBuildChDots() {
     const el = document.getElementById('mob-ch-dots');
+    if (!el) return; // HTML에 없으면 무시
     const count = bookState.chapters.length + 1;
-    // 너무 많으면 숨김
     if (count > 12) { el.style.display = 'none'; return; }
     el.innerHTML = '';
     for (let i = 0; i < count; i++) {
@@ -1924,10 +1935,11 @@ function mobRestoreBookmark() {
         const p = JSON.parse(saved);
         const ci = p.chapterIdx !== undefined ? p.chapterIdx : (p.pageIdx > 0 ? p.pageIdx - 1 : -1);
         if (ci >= 0 && ci < bookState.chapters.length && mobChapMap[ci] !== undefined) {
-            const info = document.getElementById('bookmark-info-text');
-            if (info) info.innerHTML = `이전에 감상하시던 <strong>${ci+1}화 — ${bookState.chapters[ci].title}</strong>가 있습니다. 이어서 읽으시겠습니까?`;
+            const infoEl = document.getElementById('bookmark-info-text');
+            if (infoEl) infoEl.innerHTML = `이전에 감상하시던 <strong>${ci+1}화 — ${bookState.chapters[ci].title}</strong>가 있습니다. 이어서 읽으시겠습니까?`;
             bookmarkState.savedPageIndex = mobChapMap[ci];
-            document.getElementById('modal-bookmark').classList.remove('hidden');
+            const modal = document.getElementById('modal-bookmark');
+            if (modal) modal.classList.remove('hidden');
         }
     } catch(e) {}
 }
