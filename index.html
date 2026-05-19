@@ -162,87 +162,241 @@
         @media(max-width:640px){ .reader-progress-track{width:min(220px,50vw);} }
         
         /* ── MOBILE PAGE LAYOUT ── */
-        .mob-page {
+        /* ── MOBILE KAKAO-STYLE READER ── */
+        /* 전체화면 슬라이드 컨테이너 */
+        #mob-reader {
+            position: fixed;
+            inset: 0;
+            background: var(--paper);
+            z-index: 200;
+            display: none;
+            overflow: hidden;
+            touch-action: pan-y;
+        }
+        #mob-reader.active { display: block; }
+
+        /* 슬라이드 스트립 */
+        #mob-strip {
+            position: absolute;
+            top: 0; bottom: 0; left: 0;
+            display: flex;
+            transition: transform 0.28s cubic-bezier(0.25,0.46,0.45,0.94);
+            will-change: transform;
+        }
+        #mob-strip.no-anim { transition: none; }
+
+        /* 각 슬라이드 페이지 */
+        .mob-slide {
             position: relative;
+            flex-shrink: 0;
+            overflow: hidden;
+            background: var(--paper);
+            display: flex;
+            align-items: flex-start;
+        }
+        .mob-slide-text {
             width: 100%;
             height: 100%;
-            background: var(--paper);
+            padding: 0 24px;
             overflow: hidden;
+            font-family: var(--serif);
+            font-size: 17px;
+            line-height: 2.0;
+            color: var(--ink);
+            word-break: keep-all;
             display: flex;
             flex-direction: column;
+            justify-content: center;
         }
-        .mob-page-header {
-            flex-shrink: 0;
-            padding: 14px 22px 10px;
+        .mob-slide-text p {
+            margin-bottom: 0.9em;
+            text-indent: 1em;
+            text-align: left;
+        }
+        .mob-slide-text p:first-child { text-indent: 0; }
+        /* 드롭캡 해제 */
+        .mob-slide-text p.drop::first-letter {
+            float: none !important; font-size: inherit !important;
+            line-height: inherit !important; margin: 0 !important;
+            color: inherit !important; font-weight: inherit !important;
+        }
+        /* 특수 블록 모바일 최적화 */
+        .mob-slide-text .chat-block { font-size: 0.88em; }
+        .mob-slide-text .flashback-block { font-size: 0.92em; padding: 1em 1em; }
+        .mob-slide-text .scene-dots { margin: 1.5em 0 1.5em 1em !important; }
+        .mob-slide-text .chapter-end-marker { margin: 2em auto 1em !important; font-size: 0.85em; }
+        .mob-slide-text .illustration-block { max-width: 100%; }
+        .mob-slide-text .music-block { padding-left: 0; }
+
+        /* 상단 UI 바 */
+        #mob-topbar {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: 52px;
+            background: var(--paper);
             border-bottom: 0.5px solid var(--border);
-            text-align: center;
+            display: flex;
+            align-items: center;
+            padding: 0 14px;
+            gap: 8px;
+            z-index: 210;
+            transform: translateY(-100%);
+            transition: transform 0.25s ease;
         }
-        .mob-page-chapter {
-            font-family: var(--sans);
-            font-size: 10px;
-            letter-spacing: 0.15em;
-            text-transform: uppercase;
-            color: var(--accent);
-            margin-bottom: 3px;
-        }
-        .mob-page-title {
-            font-family: var(--serif);
-            font-size: 13px;
-            font-weight: 700;
-            color: var(--ink2);
-            line-height: 1.3;
-        }
-        .mob-page-body {
-            flex: 1;
-            overflow: hidden;
-            padding: 22px 26px 14px;
-        }
-        /* 모바일 전용 prose 오버라이드 */
-        .mob-page-body .prose {
-            font-size: 16px !important;
-            line-height: 1.95 !important;
-        }
-        .mob-page-body .prose p {
-            margin-bottom: 1.0em !important;
-            text-indent: 1em !important;
-            text-align: left !important;   /* justify 해제 */
-            word-break: keep-all !important;
-        }
-        /* 모바일에서 드롭캡 해제 */
-        .mob-page-body .prose p.drop::first-letter {
-            float: none !important;
-            font-size: inherit !important;
-            line-height: inherit !important;
-            margin: 0 !important;
-            color: inherit !important;
-            font-weight: inherit !important;
-        }
-        .mob-page-footer {
+        #mob-topbar.visible { transform: translateY(0); }
+        .mob-tb-btn {
+            background: none; border: none; cursor: pointer;
+            color: var(--ink2); width: 36px; height: 36px;
+            border-radius: 8px; font-size: 17px;
+            display: flex; align-items: center; justify-content: center;
             flex-shrink: 0;
-            padding: 7px 22px 10px;
+        }
+        #mob-tb-title {
+            flex: 1;
+            font-family: var(--sans);
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--ink);
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #mob-tb-pagenum {
+            font-family: var(--sans);
+            font-size: 12px;
+            color: var(--ink3);
+            flex-shrink: 0;
+        }
+
+        /* 하단 UI 바 */
+        #mob-bottombar {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: var(--paper);
             border-top: 0.5px solid var(--border);
+            padding: 10px 20px 20px;
+            z-index: 210;
+            transform: translateY(100%);
+            transition: transform 0.25s ease;
+        }
+        #mob-bottombar.visible { transform: translateY(0); }
+        .mob-bb-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 8px;
         }
-        .mob-page-num {
+        .mob-bb-btn {
+            background: none;
+            border: 0.5px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: var(--sans);
+            font-size: 13px;
+            color: var(--ink2);
+            padding: 8px 16px;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .mob-bb-btn:disabled { opacity: 0.25; pointer-events: none; }
+        .mob-bb-btn:active { background: var(--border); }
+        .mob-chapter-dots {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex: 1;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .mob-ch-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--border);
+            border: none; padding: 0; cursor: pointer;
+            transition: all 0.2s; flex-shrink: 0;
+        }
+        .mob-ch-dot.active { background: var(--accent); transform: scale(1.4); }
+        /* 글자 크기 슬라이더 */
+        .mob-font-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 0 2px;
+        }
+        .mob-font-label { font-family: var(--sans); font-size: 12px; color: var(--ink3); }
+        .mob-font-slider {
+            flex: 1;
+            -webkit-appearance: none;
+            height: 3px;
+            background: var(--border);
+            border-radius: 2px;
+            outline: none;
+        }
+        .mob-font-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px; height: 18px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+        }
+        .mob-font-val { font-family: var(--sans); font-size: 12px; color: var(--ink); min-width: 24px; text-align: right; }
+
+        /* 목차 시트 */
+        #mob-toc-sheet {
+            position: fixed;
+            inset: 0;
+            z-index: 220;
+            display: none;
+        }
+        #mob-toc-sheet.open { display: flex; flex-direction: column; }
+        .mob-toc-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+        }
+        .mob-toc-panel {
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 80%;
+            max-width: 320px;
+            background: var(--paper);
+            overflow-y: auto;
+            padding: 52px 0 24px;
+        }
+        .mob-toc-title {
             font-family: var(--sans);
             font-size: 11px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
             color: var(--ink3);
+            padding: 0 20px 8px;
         }
-        .mob-cover-page {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            background: var(--paper);
+        .mob-toc-item {
+            display: block; width: 100%;
+            background: none; border: none;
+            text-align: left;
+            font-family: var(--serif);
+            font-size: 14px;
+            color: var(--ink2);
+            padding: 12px 20px;
+            cursor: pointer;
+            border-left: 2.5px solid transparent;
+            transition: all 0.12s;
+        }
+        .mob-toc-item:active { background: var(--border); }
+        .mob-toc-item.active { color: var(--accent); border-left-color: var(--accent); font-weight: 500; }
+
+        /* 표지 슬라이드 */
+        .mob-cover-slide {
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             text-align: center;
-            padding: 40px 28px;
+            padding: 60px 32px;
+            height: 100%;
             overflow-y: auto;
-            box-sizing: border-box;
         }
         ::-webkit-scrollbar{width:6px;height:6px;}
         ::-webkit-scrollbar-track{background:transparent;}
@@ -456,6 +610,44 @@
     <footer id="author-footer" class="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-400">
         <p>© 2026 뉴토끼남 E-Book Platform. All rights reserved.</p>
     </footer>
+</div>
+
+<!-- ── MOBILE KAKAO-STYLE READER ── -->
+<div id="mob-reader">
+    <!-- 슬라이드 스트립 -->
+    <div id="mob-strip"></div>
+
+    <!-- 상단 바 -->
+    <div id="mob-topbar">
+        <button class="mob-tb-btn" onclick="mobTocOpen()"><i class="fa-solid fa-bars"></i></button>
+        <span id="mob-tb-title">뷰어</span>
+        <span id="mob-tb-pagenum">1 / 1</span>
+        <button class="mob-tb-btn" onclick="promptAuthorMode()" title="작가모드"><i class="fa-solid fa-lock"></i></button>
+    </div>
+
+    <!-- 하단 바 -->
+    <div id="mob-bottombar">
+        <div class="mob-bb-row">
+            <button class="mob-bb-btn" id="mob-prev-ch" onclick="mobPrevChapter()">← 이전화</button>
+            <div class="mob-chapter-dots" id="mob-ch-dots"></div>
+            <button class="mob-bb-btn" id="mob-next-ch" onclick="mobNextChapter()">다음화 →</button>
+        </div>
+        <div class="mob-font-row">
+            <span class="mob-font-label">가</span>
+            <input type="range" class="mob-font-slider" id="mob-font-slider" min="13" max="22" value="17" oninput="mobSetFont(this.value)">
+            <span class="mob-font-val" id="mob-font-val">17</span>
+            <span class="mob-font-label" style="font-size:16px;">가</span>
+        </div>
+    </div>
+
+    <!-- 목차 시트 -->
+    <div id="mob-toc-sheet">
+        <div class="mob-toc-backdrop" onclick="mobTocClose()"></div>
+        <div class="mob-toc-panel" id="mob-toc-panel">
+            <div class="mob-toc-title">목차</div>
+            <div id="mob-toc-list"></div>
+        </div>
+    </div>
 </div>
 
 <!-- 커스텀 삭제 확인 모달 -->
@@ -978,15 +1170,31 @@ function switchViewMode(mode) {
     bookState.viewMode = mode;
     document.body.classList.toggle('reader-active', mode === 'reader');
     document.getElementById('author-workspace').classList.toggle('hidden', mode === 'reader');
-    document.getElementById('reader-workspace').classList.toggle('hidden', mode === 'author');
     document.getElementById('author-header').classList.toggle('hidden', mode === 'reader');
     document.getElementById('author-footer').classList.toggle('hidden', mode === 'reader');
-    if (mode === 'reader') {
-        // updateBookInfo 호출 금지 — input 필드 값으로 bookState 덮어씀
-        buildReaderPages();
-        resetMusicButtons();
-        if (ytAudioPlayer && ytAudioPlayer.stopVideo) ytAudioPlayer.stopVideo();
-        setTimeout(checkAndTriggerBookmark, 600);
+
+    if (IS_MOBILE) {
+        // 모바일: mob-reader 토글
+        const mobReader = document.getElementById('mob-reader');
+        const readerWs = document.getElementById('reader-workspace');
+        if (mode === 'reader') {
+            readerWs.classList.add('hidden');
+            mobReader.classList.add('active');
+            buildReaderPages();
+            resetMusicButtons();
+            if (ytAudioPlayer && ytAudioPlayer.stopVideo) ytAudioPlayer.stopVideo();
+        } else {
+            mobReader.classList.remove('active');
+            readerWs.classList.add('hidden');
+        }
+    } else {
+        document.getElementById('reader-workspace').classList.toggle('hidden', mode === 'author');
+        if (mode === 'reader') {
+            buildReaderPages();
+            resetMusicButtons();
+            if (ytAudioPlayer && ytAudioPlayer.stopVideo) ytAudioPlayer.stopVideo();
+            setTimeout(checkAndTriggerBookmark, 600);
+        }
     }
 }
 /* ════════════════════════════════════════════
@@ -1315,64 +1523,297 @@ const canvas = document.getElementById('flipCanvas');
 const ctx = canvas.getContext('2d');
 
 function initMobile() {
-    document.getElementById('pcBottom').style.display = 'none';
-    document.getElementById('sidebar').style.display = 'none';
-    document.getElementById('mobBottom').style.display = 'flex';
-    canvas.style.display = 'block';
+    // 기존 reader-workspace 숨기기
+    document.getElementById('reader-workspace').classList.add('hidden');
+    // 모바일 전용 뷰어 활성화
+    document.getElementById('mob-reader').classList.add('active');
+    mobBuildReader();
+}
 
-    resizeMob();
-    window.addEventListener('resize', resizeMob);
+/* ════════════════════════════════════════════
+   MOBILE KAKAO-STYLE READER ENGINE
+   ════════════════════════════════════════════ */
+let mobSlides = [];       // 전체 슬라이드 데이터
+let mobCurSlide = 0;      // 현재 슬라이드 인덱스
+let mobChapMap = [];      // chapterIdx → slide 시작 인덱스
+let mobUIVisible = false; // 상단/하단 UI 토글 상태
+let mobSlideW = 0;        // 슬라이드 너비
+let mobFontSize = 17;     // 모바일 폰트 크기
 
-    // dots 재생성 (모바일은 많아지므로 챕터 수 기준으로)
-    const dotsEl = document.getElementById('mobDots');
-    dotsEl.innerHTML = ''; mobDots = [];
-    if (IS_MOBILE) {
-        // 모바일: 챕터 단위 도트 (표지 포함)
-        const dotCount = bookState.chapters.length + 1;
-        for (let i = 0; i < dotCount; i++) {
-            const d = document.createElement('button');
-            d.className = 'mob-dot';
-            d.addEventListener('click', () => mobGoToChapter(i - 1));
-            dotsEl.appendChild(d); mobDots.push(d);
-        }
-    } else {
-        bkPages.forEach((_, i) => {
-            const d = document.createElement('button');
-            d.className = 'mob-dot';
-            d.addEventListener('click', () => triggerFlip(i));
-            dotsEl.appendChild(d); mobDots.push(d);
+// 터치 상태
+let mobTouchStartX = 0;
+let mobTouchStartY = 0;
+let mobTouchDragging = false;
+let mobTouchScrolling = false;
+
+function mobBuildReader() {
+    const strip = document.getElementById('mob-strip');
+    strip.innerHTML = '';
+    mobSlides = [];
+    mobChapMap = [];
+    mobSlideW = window.innerWidth;
+    mobCurSlide = 0;
+
+    // strip 너비 설정
+    strip.style.width = 'max-content';
+
+    // 표지 슬라이드
+    const info = getDeviceCoverInfo();
+    const coverSlide = document.createElement('div');
+    coverSlide.className = 'mob-slide';
+    coverSlide.style.width = mobSlideW + 'px';
+    coverSlide.style.height = '100vh';
+    coverSlide.innerHTML = `
+        <div class="mob-cover-slide">
+            ${info.url ? `<div style="width:200px;height:320px;border-radius:12px;overflow:hidden;box-shadow:0 16px 32px rgba(0,0,0,0.2);margin-bottom:28px;"><img src="${info.url}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.style.display='none'"></div>` : '<div style="font-size:48px;margin-bottom:28px;color:var(--accent2)">❧</div>'}
+            <h1 style="font-family:var(--serif);font-size:26px;font-weight:700;color:var(--ink);line-height:1.3;margin-bottom:12px;">${bookState.title}</h1>
+            <p style="font-size:13px;color:var(--ink3);line-height:1.7;margin-bottom:24px;font-style:italic;">${bookState.description || ''}</p>
+            <div style="width:36px;height:1px;background:var(--accent2);margin:0 auto 16px;"></div>
+            <p style="font-family:var(--sans);font-size:13px;color:var(--ink2);">${bookState.author} 지음</p>
+            <p style="font-family:var(--sans);font-size:11px;color:var(--ink3);margin-top:36px;animation:pulse 2s ease-in-out infinite;">← 스와이프 →</p>
+        </div>`;
+    strip.appendChild(coverSlide);
+    mobSlides.push({ type: 'cover', chapterIdx: -1, pageInChapter: 0, totalInChapter: 1, hasMusicBlock: false });
+
+    // 챕터 슬라이드 생성
+    bookState.chapters.forEach((ch, ci) => {
+        mobChapMap[ci] = mobSlides.length;
+        const subPages = splitChapterIntoMobPages(ch.content);
+        const total = subPages.length;
+
+        subPages.forEach((pageContent, pi) => {
+            const isLast = pi === total - 1;
+            const hasMusicBlock = /\[(music|autoplay)=/.test(pageContent);
+            const htmlContent = mobFormatProse(pageContent, pi === 0);
+
+            const slide = document.createElement('div');
+            slide.className = 'mob-slide';
+            slide.style.width = mobSlideW + 'px';
+            slide.style.height = '100vh';
+            slide.innerHTML = `<div class="mob-slide-text" style="font-size:${mobFontSize}px;">${htmlContent}${isLast ? '<div class="chapter-end-marker" style="font-size:0.8em;margin-top:1.5em!important;">— 제'+(ci+1)+'화 끝 —</div>' : ''}</div>`;
+            strip.appendChild(slide);
+            mobSlides.push({ type: 'chapter', chapterIdx: ci, pageInChapter: pi, totalInChapter: total, hasMusicBlock, chapterTitle: ch.title });
         });
-    }
-
-    // 메뉴/토글 버튼
-    document.getElementById('tbLeft').onclick = () => document.getElementById('menuOverlay').classList.add('open');
-    document.getElementById('tbRight').onclick = () => document.getElementById('menuOverlay').classList.add('open');
-    document.getElementById('menuOverlay').addEventListener('click', e => {
-        if (e.target === document.getElementById('menuOverlay')) document.getElementById('menuOverlay').classList.remove('open');
     });
 
-    document.getElementById('pcFontUp').onclick = () => { if(fontSize<24){fontSize++;applyFont();} };
-    document.getElementById('pcFontDown').onclick = () => { if(fontSize>13){fontSize--;applyFont();} };
-    document.getElementById('mobFontUp').onclick = () => { if(fontSize<24){fontSize++;applyFont();} };
-    document.getElementById('mobFontDown').onclick = () => { if(fontSize>13){fontSize--;applyFont();} };
+    // 이벤트 연결
+    mobSetupEvents();
+    mobBuildToc();
+    mobBuildChDots();
+    mobGoToSlide(0, false);
+    mobRestoreBookmark();
+}
 
-    // Touch events
-    let tSX=0, tSY=0, tScrolling=false;
-    canvas.addEventListener('touchstart', e => {
-        tSX = e.touches[0].clientX; tSY = e.touches[0].clientY; tScrolling = false;
-    }, {passive:true});
-    canvas.addEventListener('touchmove', e => {
-        if (st.phase === 'dragging') { e.preventDefault(); moveDrag(e.touches[0].clientX, e.touches[0].clientY); return; }
-        if (tScrolling) return;
-        const dx = Math.abs(e.touches[0].clientX - tSX), dy = Math.abs(e.touches[0].clientY - tSY);
-        if (dy > dx * 1.4) { tScrolling = true; return; }
-        if (dx > 8) { startDrag(tSX, tSY); if (st.phase === 'dragging') moveDrag(e.touches[0].clientX, e.touches[0].clientY); }
-    }, {passive:false});
-    canvas.addEventListener('touchend', e => {
-        if (st.phase === 'dragging') endDrag(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
-    }, {passive:true});
+// 모바일 전용 prose 포맷 (드롭캡 없음, left align)
+function mobFormatProse(rawContent, isFirstPage) {
+    // parseSpecialBlocks 재사용
+    let content = parseSpecialBlocks(rawContent.replace(/\r/g, ''));
+    const lines = content.split('\n');
+    const out = [];
+    let firstPara = true;
 
-    mobCommit(0);
+    for (let i = 0; i < lines.length; i++) {
+        const p = lines[i], t = p.trim();
+        if (t === '[[transition]]') {
+            const si = i; i++;
+            const bl = [];
+            while (i < lines.length && lines[i].trim() !== '[[/transition]]') { bl.push(lines[i]); i++; }
+            out.push(`<div class="transition-block"><span>${bl.map(l => sanitizeAndFormatBold(l)).join('<br>')}</span></div>`);
+            continue;
+        }
+        if (p.startsWith('<div') || p.startsWith('</div') || p.startsWith('<a')) { out.push(p); continue; }
+        if (t === '***' || t === '* * *') { out.push(`<div class="scene-asterisk">❧&nbsp;&nbsp;❧&nbsp;&nbsp;❧</div>`); continue; }
+        if (t === '<...>' || t === '<…>') { out.push(`<div class="scene-dots"><span style="font-size:5px;line-height:1">●</span><span style="font-size:9px;line-height:1">●</span><span style="font-size:14px;line-height:1">●</span><span style="font-size:9px;line-height:1">●</span><span style="font-size:5px;line-height:1">●</span></div>`); continue; }
+        if (t === '-----') { out.push(`<div class="scene-long-line"></div>`); continue; }
+        if (t === '=====') { out.push(`<div class="scene-double-line"></div>`); continue; }
+        if (t === '') { out.push(`<p style="height:0.6em;margin:0;">&nbsp;</p>`); continue; }
+        // 모바일: 드롭캡 없이 그냥 p
+        out.push(`<p>${sanitizeAndFormatBold(p)}</p>`);
+        firstPara = false;
+    }
+    return out.filter(Boolean).join('');
+}
+
+function mobSetupEvents() {
+    const strip = document.getElementById('mob-strip');
+    const reader = document.getElementById('mob-reader');
+
+    // 탭으로 UI 토글
+    reader.addEventListener('click', e => {
+        // 버튼 클릭은 무시
+        if (e.target.closest('button') || e.target.closest('input') || e.target.closest('#mob-topbar') || e.target.closest('#mob-bottombar') || e.target.closest('#mob-toc-sheet')) return;
+        mobToggleUI();
+    });
+
+    // 터치 스와이프
+    reader.addEventListener('touchstart', e => {
+        mobTouchStartX = e.touches[0].clientX;
+        mobTouchStartY = e.touches[0].clientY;
+        mobTouchDragging = false;
+        mobTouchScrolling = false;
+        strip.classList.add('no-anim');
+    }, { passive: true });
+
+    reader.addEventListener('touchmove', e => {
+        if (mobTouchScrolling) return;
+        const dx = e.touches[0].clientX - mobTouchStartX;
+        const dy = e.touches[0].clientY - mobTouchStartY;
+        if (!mobTouchDragging && Math.abs(dy) > Math.abs(dx) * 1.5) { mobTouchScrolling = true; return; }
+        if (Math.abs(dx) > 6) {
+            mobTouchDragging = true;
+            const baseOffset = -mobCurSlide * mobSlideW;
+            strip.style.transform = `translateX(${baseOffset + dx}px)`;
+        }
+    }, { passive: true });
+
+    reader.addEventListener('touchend', e => {
+        strip.classList.remove('no-anim');
+        if (!mobTouchDragging) return;
+        const dx = e.changedTouches[0].clientX - mobTouchStartX;
+        if (dx < -50 && mobCurSlide < mobSlides.length - 1) mobGoToSlide(mobCurSlide + 1);
+        else if (dx > 50 && mobCurSlide > 0) mobGoToSlide(mobCurSlide - 1);
+        else mobGoToSlide(mobCurSlide); // snap back
+    }, { passive: true });
+
+    window.addEventListener('resize', () => {
+        mobSlideW = window.innerWidth;
+        document.querySelectorAll('.mob-slide').forEach(s => { s.style.width = mobSlideW + 'px'; });
+        mobGoToSlide(mobCurSlide, false);
+    });
+}
+
+function mobGoToSlide(idx, animate = true) {
+    if (idx < 0 || idx >= mobSlides.length) return;
+    resetMusicButtons();
+    mobCurSlide = idx;
+    const strip = document.getElementById('mob-strip');
+    if (!animate) strip.classList.add('no-anim');
+    strip.style.transform = `translateX(${-idx * mobSlideW}px)`;
+    if (!animate) requestAnimationFrame(() => strip.classList.remove('no-anim'));
+
+    const slide = mobSlides[idx];
+    mobUpdateUI(slide);
+
+    // 책갈피 저장
+    if (slide.chapterIdx >= 0) {
+        saveBookmark(idx, 0);
+    }
+
+    // music 자동재생
+    setTimeout(() => {
+        if (slide.hasMusicBlock && !currentPlayingMusicId) {
+            const el = document.querySelectorAll('.mob-slide')[idx];
+            if (el) { const ml = el.querySelector('.music-link'); if (ml) ml.click(); }
+        }
+    }, 200);
+}
+
+function mobUpdateUI(slide) {
+    // 제목
+    const titleEl = document.getElementById('mob-tb-title');
+    if (slide.type === 'cover') {
+        titleEl.textContent = bookState.title;
+    } else {
+        titleEl.textContent = `${slide.chapterIdx + 1}화 — ${slide.chapterTitle}`;
+    }
+
+    // 페이지 번호
+    const numEl = document.getElementById('mob-tb-pagenum');
+    if (slide.type === 'cover') {
+        numEl.textContent = '';
+    } else {
+        numEl.textContent = `${slide.pageInChapter + 1} / ${slide.totalInChapter}`;
+    }
+
+    // 챕터 이전/다음 버튼
+    const ci = slide.chapterIdx;
+    document.getElementById('mob-prev-ch').disabled = (ci <= 0 && slide.type !== 'chapter') || (ci < 0);
+    document.getElementById('mob-next-ch').disabled = ci >= bookState.chapters.length - 1 && slide.pageInChapter >= slide.totalInChapter - 1;
+
+    // 챕터 도트
+    document.querySelectorAll('.mob-ch-dot').forEach((d, i) => {
+        d.classList.toggle('active', i === ci + 1);
+    });
+
+    // 목차 활성
+    document.querySelectorAll('.mob-toc-item').forEach((el, i) => {
+        el.classList.toggle('active', i === ci + 1);
+    });
+}
+
+function mobToggleUI() {
+    mobUIVisible = !mobUIVisible;
+    document.getElementById('mob-topbar').classList.toggle('visible', mobUIVisible);
+    document.getElementById('mob-bottombar').classList.toggle('visible', mobUIVisible);
+}
+
+function mobPrevChapter() {
+    const ci = mobSlides[mobCurSlide].chapterIdx;
+    if (ci <= 0) { mobGoToSlide(0); return; }
+    const target = mobChapMap[ci - 1];
+    if (target !== undefined) mobGoToSlide(target);
+}
+
+function mobNextChapter() {
+    const ci = mobSlides[mobCurSlide].chapterIdx;
+    const next = ci + 1;
+    if (next < bookState.chapters.length) {
+        const target = mobChapMap[next];
+        if (target !== undefined) mobGoToSlide(target);
+    }
+}
+
+function mobBuildToc() {
+    const list = document.getElementById('mob-toc-list');
+    let html = `<button class="mob-toc-item" onclick="mobGoToSlide(0);mobTocClose()">표지</button>`;
+    bookState.chapters.forEach((ch, i) => {
+        html += `<button class="mob-toc-item" onclick="mobGoToSlide(${mobChapMap[i]});mobTocClose()">${i+1}화 — ${ch.title}</button>`;
+    });
+    list.innerHTML = html;
+}
+
+function mobBuildChDots() {
+    const el = document.getElementById('mob-ch-dots');
+    const count = bookState.chapters.length + 1;
+    // 너무 많으면 숨김
+    if (count > 12) { el.style.display = 'none'; return; }
+    el.innerHTML = '';
+    for (let i = 0; i < count; i++) {
+        const d = document.createElement('button');
+        d.className = 'mob-ch-dot';
+        d.onclick = () => { if (i === 0) mobGoToSlide(0); else if (mobChapMap[i-1] !== undefined) mobGoToSlide(mobChapMap[i-1]); };
+        el.appendChild(d);
+    }
+}
+
+function mobTocOpen() { document.getElementById('mob-toc-sheet').classList.add('open'); }
+function mobTocClose() { document.getElementById('mob-toc-sheet').classList.remove('open'); }
+
+function mobSetFont(val) {
+    mobFontSize = parseInt(val);
+    document.getElementById('mob-font-val').textContent = mobFontSize;
+    document.querySelectorAll('.mob-slide-text').forEach(el => el.style.fontSize = mobFontSize + 'px');
+    // 폰트 바뀌면 페이지 재분할
+    const curCi = mobSlides[mobCurSlide] ? mobSlides[mobCurSlide].chapterIdx : -1;
+    mobBuildReader();
+    // 같은 챕터 첫 페이지로
+    if (curCi >= 0 && mobChapMap[curCi] !== undefined) mobGoToSlide(mobChapMap[curCi], false);
+    else mobGoToSlide(0, false);
+}
+
+function mobRestoreBookmark() {
+    const saved = localStorage.getItem(`newtokkinam_bookmark_${bookmarkState.activeBookId}`);
+    if (!saved) return;
+    try {
+        const p = JSON.parse(saved);
+        const ci = p.chapterIdx !== undefined ? p.chapterIdx : (p.pageIdx > 0 ? p.pageIdx - 1 : -1);
+        if (ci >= 0 && ci < bookState.chapters.length && mobChapMap[ci] !== undefined) {
+            const info = document.getElementById('bookmark-info-text');
+            if (info) info.innerHTML = `이전에 감상하시던 <strong>${ci+1}화 — ${bookState.chapters[ci].title}</strong>가 있습니다. 이어서 읽으시겠습니까?`;
+            bookmarkState.savedPageIndex = mobChapMap[ci];
+            document.getElementById('modal-bookmark').classList.remove('hidden');
+        }
+    } catch(e) {}
 }
 
 function resizeMob() {
@@ -1697,8 +2138,16 @@ function checkAndTriggerBookmark(){
 
 function closeBookmarkModal(restore){
     document.getElementById('modal-bookmark').classList.add('hidden');
-    if(restore){restoreReadingPosition(bookmarkState.savedPageIndex,bookmarkState.savedParagraphIndex);}
-    else{IS_MOBILE?mobCommit(0):pcCommit(0);}
+    if(IS_MOBILE){
+        if(restore && bookmarkState.savedPageIndex > 0){
+            mobGoToSlide(bookmarkState.savedPageIndex, false);
+        } else {
+            mobGoToSlide(0, false);
+        }
+    } else {
+        if(restore){restoreReadingPosition(bookmarkState.savedPageIndex,bookmarkState.savedParagraphIndex);}
+        else{pcCommit(0);}
+    }
 }
 
 function restoreReadingPosition(pageIdx,paraIdx){
