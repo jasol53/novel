@@ -1,14 +1,31 @@
 /* ── 디버깅용 에러 핸들러 (확인 후 제거) ── */
+function _showErr(text) {
+    try {
+        let box = document.getElementById('_err_overlay');
+        if (!box) {
+            box = document.createElement('div');
+            box.id = '_err_overlay';
+            box.style.cssText = [
+                'position:fixed', 'inset:0', 'background:rgba(0,0,0,0.92)',
+                'color:#ff6b6b', 'font-size:13px', 'font-family:monospace',
+                'padding:20px', 'z-index:999999', 'overflow-y:auto',
+                'white-space:pre-wrap', 'word-break:break-all'
+            ].join(';');
+            box.onclick = () => box.remove();
+            document.body.appendChild(box);
+        }
+        box.textContent += text + '\n\n──────\n\n';
+    } catch(e) {}
+}
 window.onerror = function(msg, src, line, col, err) {
-    const text = '[ERR] ' + msg + '\n' + src + ':' + line + ':' + col + 
-                 (err && err.stack ? '\n' + err.stack.slice(0, 300) : '');
-    alert(text);
+    _showErr('[ERR] ' + msg + '\n' + src + ':' + line + ':' + col +
+             (err && err.stack ? '\n' + err.stack.slice(0, 400) : ''));
     return false;
 };
 window.addEventListener('unhandledrejection', e => {
     const msg = e.reason && e.reason.message ? e.reason.message : String(e.reason);
-    const stack = e.reason && e.reason.stack ? e.reason.stack.slice(0, 300) : '';
-    alert('[PROMISE] ' + msg + '\n' + stack);
+    const stack = e.reason && e.reason.stack ? e.reason.stack.slice(0, 400) : '';
+    _showErr('[PROMISE] ' + msg + '\n' + stack);
 });
 
 /* ════════════════════════════════════════════
