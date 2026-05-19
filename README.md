@@ -1,4 +1,4 @@
-[README.md](https://github.com/user-attachments/files/27986416/README.md)
+[README.md](https://github.com/user-attachments/files/27987286/README.md)
 # Novel Site Split Version
 
 기존 `index.html`의 기능은 유지하고, 관리하기 쉽도록 파일만 분리한 버전입니다.
