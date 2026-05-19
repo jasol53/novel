@@ -160,6 +160,76 @@
         .bookmark-anchor-highlight { animation:bookmarkAnchorPulse 1.8s ease-out 1; border-radius:8px; }
         @keyframes bookmarkAnchorPulse{0%{background:rgba(196,154,108,0.30);}100%{background:transparent;}}
         @media(max-width:640px){ .reader-progress-track{width:min(220px,50vw);} }
+        
+        /* ── MOBILE PAGE LAYOUT ── */
+        .mob-page {
+            position: absolute;
+            inset: 0;
+            background: var(--paper);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .mob-page-header {
+            flex-shrink: 0;
+            padding: 20px 24px 12px;
+            border-bottom: 0.5px solid var(--border);
+            text-align: center;
+        }
+        .mob-page-chapter {
+            font-family: var(--sans);
+            font-size: 10px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 4px;
+        }
+        .mob-page-title {
+            font-family: var(--serif);
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--ink);
+            line-height: 1.4;
+        }
+        .mob-page-body {
+            flex: 1;
+            overflow: hidden;
+            padding: 20px 24px 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+        .mob-page-body .prose {
+            font-size: 16px;
+            line-height: 2.0;
+        }
+        .mob-page-body .prose p {
+            margin-bottom: 1.2em;
+        }
+        .mob-page-footer {
+            flex-shrink: 0;
+            padding: 8px 24px 12px;
+            border-top: 0.5px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .mob-page-num {
+            font-family: var(--sans);
+            font-size: 11px;
+            color: var(--ink3);
+        }
+        .mob-cover-page {
+            position: absolute;
+            inset: 0;
+            background: var(--paper);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 40px 28px;
+        }
         ::-webkit-scrollbar{width:6px;height:6px;}
         ::-webkit-scrollbar-track{background:transparent;}
         ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
@@ -935,16 +1005,97 @@ function goHome() { if (isAuthorUnlocked) switchViewMode('author'); }
 /* ════════════════════════════════════════════
    BUILD READER PAGES
    ════════════════════════════════════════════ */
+/* ════════════════════════════════════════════
+   MOBILE: 챕터를 300자 단위 페이지로 분할
+   ════════════════════════════════════════════ */
+const MOB_CHARS_PER_PAGE = 300;
+
+// 특수 블록 마커 (분할 시 통째로 유지)
+const BLOCK_MARKER = '\x01BLOCK\x01';
+
+function splitChapterIntoMobPages(content) {
+    // 1. 특수 블록을 마커로 치환해서 분할 방지
+    const blocks = [];
+    let processed = content.replace(/\r/g, '');
+
+    // 특수 블록 패턴들
+    const blockPatterns = [
+        /\[\[transition\]\][\s\S]*?\[\[\/transition\]\]/g,
+        /\[chat\][\s\S]*?\[\/chat\]/g,
+        /\[flashback\][\s\S]*?\[\/flashback\]/g,
+        /\[lyrics\][\s\S]*?\[\/lyrics\]/g,
+        /\[image=.*?\][\s\S]*?\[\/image\]/g,
+        /\[music=.*?\].*?\[\/music\]/g,
+        /\[autoplay=.*?\].*?\[\/autoplay\]/g,
+    ];
+
+    for (const pattern of blockPatterns) {
+        processed = processed.replace(pattern, match => {
+            blocks.push(match);
+            return `${BLOCK_MARKER}${blocks.length - 1}${BLOCK_MARKER}`;
+        });
+    }
+
+    // 2. 문단 단위로 쪼개기
+    const paragraphs = processed.split(/\n/);
+    const pages = [];
+    let currentPage = [];
+    let currentLen = 0;
+
+    for (const para of paragraphs) {
+        const isBlock = para.startsWith(BLOCK_MARKER);
+        const paraLen = isBlock ? 0 : para.length; // 블록은 길이 0 취급 (강제 안 끊김)
+
+        // 빈 줄
+        if (!isBlock && para.trim() === '') {
+            currentPage.push(para);
+            continue;
+        }
+
+        // 블록이거나 현재 페이지가 비어있으면 그냥 추가
+        if (isBlock || currentLen === 0) {
+            currentPage.push(para);
+            currentLen += paraLen;
+        } else if (currentLen + paraLen > MOB_CHARS_PER_PAGE) {
+            // 초과 → 새 페이지로
+            pages.push(currentPage.join('\n'));
+            currentPage = [para];
+            currentLen = paraLen;
+        } else {
+            currentPage.push(para);
+            currentLen += paraLen;
+        }
+    }
+    if (currentPage.length > 0) pages.push(currentPage.join('\n'));
+
+    // 3. 마커 복원
+    return pages.map(page =>
+        page.replace(new RegExp(`${BLOCK_MARKER}(\\d+)${BLOCK_MARKER}`, 'g'), (_, idx) => blocks[parseInt(idx)])
+    );
+}
+
 function buildReaderPages() {
     const stage = document.getElementById('stage');
     stage.querySelectorAll('.book-page').forEach(p => p.remove());
+
+    if (IS_MOBILE) {
+        buildMobilePages(stage);
+    } else {
+        buildPCPages(stage);
+    }
+
+    buildTOC();
+    if (IS_MOBILE) initMobile();
+    else initPC();
+}
+
+function buildPCPages(stage) {
     TOTAL = bookState.chapters.length + 1;
     TITLES = [bookState.title, ...bookState.chapters.map(c => c.title)];
 
     const info = getDeviceCoverInfo();
     const rc = info.ratioMode === 'tablet' ? 'cover-ratio-tablet' : info.ratioMode === 'standard' ? 'cover-ratio-standard' : 'cover-ratio-webnovel';
 
-    // Cover page
     const coverDiv = document.createElement('div');
     coverDiv.className = 'book-page'; coverDiv.id = 'p0';
     coverDiv.innerHTML = `
@@ -958,12 +1109,10 @@ function buildReaderPages() {
                 <p class="cover-sub">${bookState.description || '시놉시스가 없습니다.'}</p>
                 <div class="cover-divider"></div>
                 <p class="cover-author">${bookState.author} 지음</p>
-                <p class="swipe-hint">← 밀어서 읽기 →</p>
             </div>
         </div>`;
     stage.insertBefore(coverDiv, canvas);
 
-    // Chapter pages
     bookState.chapters.forEach((ch, i) => {
         const pg = document.createElement('div');
         pg.className = 'book-page'; pg.id = `p${i+1}`;
@@ -988,27 +1137,128 @@ function buildReaderPages() {
     });
 
     bkPages = Array.from({length: TOTAL}, (_, i) => document.getElementById('p'+i));
-    buildTOC();
+}
 
-    // ✅ 수정: 뷰어 초기화 — PC/모바일 분기 처리
-    if (IS_MOBILE) {
-        initMobile();
+// 모바일 전용: 챕터→페이지 분할 구조
+// mobPages: [{chapterIdx, pageInChapter, totalInChapter, isFirst, isLast, content, hasMusicBlock}]
+let mobPages = [];
+let mobChapterMap = []; // chapterIdx → 시작 mobPage 인덱스
+
+function buildMobilePages(stage) {
+    mobPages = [];
+    mobChapterMap = [];
+
+    // 표지
+    const info = getDeviceCoverInfo();
+    const rc = info.ratioMode === 'webnovel' ? 'cover-ratio-webnovel' : 'cover-ratio-standard';
+    const coverDiv = document.createElement('div');
+    coverDiv.className = 'book-page'; coverDiv.id = 'mp0';
+    coverDiv.innerHTML = `
+        <div class="mob-cover-page">
+            <div class="cover-art-wrapper ${rc} cover-art-container-hook" style="display:${info.url?'block':'none'};margin-bottom:24px;">
+                <img src="${info.url||''}" alt="Cover" class="cover-art-img" onerror="this.parentElement.style.display='none'">
+            </div>
+            <div class="cover-ornament cover-ornament-fallback" style="display:${info.url?'none':'block'};font-size:32px;margin-bottom:24px;">❧</div>
+            <h1 style="font-family:var(--serif);font-size:28px;font-weight:700;color:var(--ink);margin-bottom:12px;line-height:1.3;">${bookState.title}</h1>
+            <p style="font-size:13px;color:var(--ink3);font-style:italic;margin-bottom:24px;line-height:1.7;">${bookState.description||''}</p>
+            <div style="width:40px;height:1px;background:var(--accent2);margin:0 auto 16px;"></div>
+            <p style="font-family:var(--sans);font-size:12px;color:var(--ink2);">${bookState.author} 지음</p>
+            <p style="margin-top:40px;font-family:var(--sans);font-size:11px;color:var(--ink3);animation:pulse 2s ease-in-out infinite;">← 스와이프해서 읽기 →</p>
+        </div>`;
+    stage.insertBefore(coverDiv, canvas);
+    mobPages.push({ chapterIdx: -1, pageInChapter: 0, totalInChapter: 1, isFirst: true, isLast: true, content: '', hasMusicBlock: false, domId: 'mp0' });
+
+    let globalIdx = 1;
+    bookState.chapters.forEach((ch, ci) => {
+        mobChapterMap[ci] = globalIdx;
+        const subPages = splitChapterIntoMobPages(ch.content);
+        const total = subPages.length;
+        TITLES = TITLES || [];
+
+        subPages.forEach((pageContent, pi) => {
+            const isFirst = pi === 0;
+            const isLast = pi === total - 1;
+            const hasMusicBlock = /\[(music|autoplay)=/.test(pageContent);
+            const domId = `mp${globalIdx}`;
+
+            const pg = document.createElement('div');
+            pg.className = 'book-page'; pg.id = domId;
+
+            const html = formatProse(pageContent);
+            pg.innerHTML = `
+                <div class="mob-page">
+                    <div class="mob-page-header">
+                        <div class="mob-page-chapter">제 ${ci+1}화</div>
+                        <div class="mob-page-title">${ch.title}</div>
+                    </div>
+                    <div class="mob-page-body">
+                        <div class="prose">${isFirst ? '' : ''}${html}${isLast ? '<div class="chapter-end-marker">— 제 '+(ci+1)+'화 끝 —</div>' : ''}</div>
+                    </div>
+                    <div class="mob-page-footer">
+                        <span class="mob-page-num">${ci+1}화 · ${pi+1}/${total}</span>
+                        <span class="mob-page-num">${bookState.title}</span>
+                    </div>
+                </div>`;
+            stage.insertBefore(pg, canvas);
+
+            mobPages.push({ chapterIdx: ci, pageInChapter: pi, totalInChapter: total, isFirst, isLast, content: pageContent, hasMusicBlock, domId });
+            globalIdx++;
+        });
+    });
+
+    TOTAL = mobPages.length;
+    TITLES = ['표지', ...bookState.chapters.map(c => c.title)];
+    bkPages = mobPages.map(mp => document.getElementById(mp.domId));
+}
+
+function rebuildMobileFont() {
+    // 폰트 크기 바뀌면 모바일 페이지 재계산
+    if (!IS_MOBILE) return;
+    const stage = document.getElementById('stage');
+    buildMobilePages(stage);
+    buildTOC();
+    // 현재 챕터 위치 복원
+    const ci = mobPages[cur] ? mobPages[cur].chapterIdx : -1;
+    if (ci >= 0 && mobChapterMap[ci] !== undefined) {
+        cur = mobChapterMap[ci];
     } else {
-        initPC();
+        cur = 0;
     }
+    layoutPages();
+    mobDots.forEach((d, i) => d.classList.toggle('active', i === cur));
 }
 
 /* ════════════════════════════════════════════
    TOC
    ════════════════════════════════════════════ */
 function buildTOC() {
-    const items = TITLES.map((t, i) =>
-        `<button class="toc-btn w-full text-left font-sans" onclick="goToPageWithState(${i})">
-            <span class="toc-name">${i===0 ? '표지' : `${i}화 — ${t}`}</span>
-        </button>`
-    ).join('');
-    document.getElementById('sbToc').innerHTML = items;
-    document.getElementById('mobTocContainer').innerHTML = items;
+    if (IS_MOBILE) {
+        // 모바일: 챕터 단위 (표지 + 각 챕터 첫 페이지)
+        const chapters = bookState.chapters;
+        let items = `<button class="menu-item ${cur===0?'active':''}" onclick="mobGoToChapter(-1)">표지</button>`;
+        chapters.forEach((ch, i) => {
+            items += `<button class="menu-item" onclick="mobGoToChapter(${i})">${i+1}화 — ${ch.title}</button>`;
+        });
+        document.getElementById('mobTocContainer').innerHTML = items;
+    } else {
+        const items = TITLES.map((t, i) =>
+            `<button class="toc-btn w-full text-left font-sans" onclick="goToPageWithState(${i})">
+                <span class="toc-name">${i===0 ? '표지' : `${i}화 — ${t}`}</span>
+            </button>`
+        ).join('');
+        document.getElementById('sbToc').innerHTML = items;
+        document.getElementById('mobTocContainer').innerHTML = items;
+    }
+}
+
+function mobGoToChapter(chapterIdx) {
+    document.getElementById('menuOverlay').classList.remove('open');
+    if (chapterIdx === -1) {
+        mobCommit(0);
+        return;
+    }
+    const startPage = mobChapterMap[chapterIdx];
+    if (startPage !== undefined) mobCommit(startPage);
 }
 
 /* ════════════════════════════════════════════
@@ -1059,15 +1309,26 @@ function initMobile() {
     resizeMob();
     window.addEventListener('resize', resizeMob);
 
-    // dots 재생성
+    // dots 재생성 (모바일은 많아지므로 챕터 수 기준으로)
     const dotsEl = document.getElementById('mobDots');
     dotsEl.innerHTML = ''; mobDots = [];
-    bkPages.forEach((_, i) => {
-        const d = document.createElement('button');
-        d.className = 'mob-dot';
-        d.addEventListener('click', () => triggerFlip(i));
-        dotsEl.appendChild(d); mobDots.push(d);
-    });
+    if (IS_MOBILE) {
+        // 모바일: 챕터 단위 도트 (표지 포함)
+        const dotCount = bookState.chapters.length + 1;
+        for (let i = 0; i < dotCount; i++) {
+            const d = document.createElement('button');
+            d.className = 'mob-dot';
+            d.addEventListener('click', () => mobGoToChapter(i - 1));
+            dotsEl.appendChild(d); mobDots.push(d);
+        }
+    } else {
+        bkPages.forEach((_, i) => {
+            const d = document.createElement('button');
+            d.className = 'mob-dot';
+            d.addEventListener('click', () => triggerFlip(i));
+            dotsEl.appendChild(d); mobDots.push(d);
+        });
+    }
 
     // 메뉴/토글 버튼
     document.getElementById('tbLeft').onclick = () => document.getElementById('menuOverlay').classList.add('open');
@@ -1168,16 +1429,39 @@ function pcCommit(idx) {
    ════════════════════════════════════════════ */
 function mobCommit(idx) {
     if (idx < 0 || idx >= TOTAL) return;
+    resetMusicButtons();
     cur = idx;
     layoutPages();
     mobDots.forEach((d, i) => d.classList.toggle('active', i === cur));
     document.getElementById('mobPrev').disabled = cur === 0;
     document.getElementById('mobNext').disabled = cur === TOTAL - 1;
     const tbTitle = document.getElementById('tbTitle');
-    if (tbTitle) tbTitle.textContent = TITLES[cur] || '';
-    document.querySelectorAll('#mobTocContainer .toc-btn').forEach((b, i) => b.classList.toggle('active', i === cur));
+    // 모바일: 현재 챕터명 표시
+    if (IS_MOBILE && mobPages[cur]) {
+        const mp = mobPages[cur];
+        if (mp.chapterIdx >= 0) {
+            const ch = bookState.chapters[mp.chapterIdx];
+            if (tbTitle) tbTitle.textContent = `${mp.chapterIdx+1}화 · ${mp.pageInChapter+1}/${mp.totalInChapter}`;
+        } else {
+            if (tbTitle) tbTitle.textContent = bookState.title;
+        }
+    } else {
+        if (tbTitle) tbTitle.textContent = TITLES[cur] || '';
+    }
     if (!bookmarkState.isRestoring && cur > 0) saveBookmark(cur, 0);
-    setTimeout(() => triggerAutoplay(cur), 100);
+    // 모바일: 해당 페이지에 music 블록 있으면 자동재생
+    if (IS_MOBILE) {
+        setTimeout(() => {
+            if (!currentPlayingMusicId) {
+                const page = bkPages[cur];
+                if (!page) return;
+                const musicLink = page.querySelector('.music-link');
+                if (musicLink) musicLink.click();
+            }
+        }, 150);
+    } else {
+        setTimeout(() => triggerAutoplay(cur), 100);
+    }
 }
 
 function triggerAutoplay(pageIdx) {
@@ -1298,17 +1582,24 @@ function triggerFlip(tIdx){
    FONT
    ════════════════════════════════════════════ */
 function applyFont() {
-    const prev={page:bookmarkState.savedPageIndex,para:bookmarkState.savedParagraphIndex};
+    fontSize = Math.max(13, Math.min(24, fontSize));
     document.querySelectorAll('.prose').forEach(el=>el.style.fontSize=fontSize+'px');
     document.getElementById('pcFontVal').textContent=fontSize;
     document.getElementById('mobFontVal').textContent=fontSize;
-    if(prev.page>0&&!bookmarkState.isRestoring) restoreReadingPosition(prev.page,prev.para);
+    if (IS_MOBILE) {
+        // 폰트 크기 바뀌면 페이지 재분할
+        rebuildMobileFont();
+    } else {
+        const prev={page:bookmarkState.savedPageIndex,para:bookmarkState.savedParagraphIndex};
+        if(prev.page>0&&!bookmarkState.isRestoring) restoreReadingPosition(prev.page,prev.para);
+    }
 }
 
 /* ════════════════════════════════════════════
    SCROLL & BOOKMARK
    ════════════════════════════════════════════ */
 function handleReaderScroll(pageIdx, sc) {
+    if(IS_MOBILE)return; // 모바일은 가로 페이지
     if(bookmarkState.isRestoring)return;
     const sh=sc.scrollHeight-sc.clientHeight, st_=sc.scrollTop;
     const pct=sh>0?(st_/sh)*100:0;
@@ -1352,7 +1643,13 @@ function handleReaderScroll(pageIdx, sc) {
 
 function saveBookmark(pageIdx,paraIdx){
     bookmarkState.savedPageIndex=pageIdx;bookmarkState.savedParagraphIndex=paraIdx;
-    try{localStorage.setItem(`newtokkinam_bookmark_${bookmarkState.activeBookId}`,JSON.stringify({pageIdx,paraIdx,savedAt:Date.now()}));}catch(e){}
+    try{
+        let extra = {};
+        if(IS_MOBILE && mobPages[pageIdx]){
+            extra.chapterIdx = mobPages[pageIdx].chapterIdx;
+        }
+        localStorage.setItem(`newtokkinam_bookmark_${bookmarkState.activeBookId}`,JSON.stringify({pageIdx,paraIdx,...extra,savedAt:Date.now()}));
+    }catch(e){}
 }
 
 function checkAndTriggerBookmark(){
@@ -1360,12 +1657,24 @@ function checkAndTriggerBookmark(){
     if(saved){
         try{
             const p=JSON.parse(saved);
-            if(p.pageIdx>0&&p.pageIdx<TOTAL){
-                bookmarkState.savedPageIndex=p.pageIdx;bookmarkState.savedParagraphIndex=p.paraIdx;
-                const info=document.getElementById('bookmark-info-text');
-                if(info)info.innerHTML=`이전에 감상하시던 <strong>제 ${p.pageIdx}화 — ${TITLES[p.pageIdx]}</strong> 지점이 있습니다. 이어서 읽으시겠습니까?`;
-                document.getElementById('modal-bookmark').classList.remove('hidden');
-                return;
+            if(IS_MOBILE){
+                // 모바일: chapterIdx 기반 복원
+                const ci = p.chapterIdx !== undefined ? p.chapterIdx : (p.pageIdx > 0 ? p.pageIdx - 1 : -1);
+                if(ci >= 0 && ci < bookState.chapters.length){
+                    bookmarkState.savedPageIndex = mobChapterMap[ci] || 0;
+                    const info=document.getElementById('bookmark-info-text');
+                    if(info)info.innerHTML=`이전에 감상하시던 <strong>${ci+1}화 — ${bookState.chapters[ci].title}</strong>가 있습니다. 이어서 읽으시겠습니까?`;
+                    document.getElementById('modal-bookmark').classList.remove('hidden');
+                    return;
+                }
+            } else {
+                if(p.pageIdx>0&&p.pageIdx<TOTAL){
+                    bookmarkState.savedPageIndex=p.pageIdx;bookmarkState.savedParagraphIndex=p.paraIdx;
+                    const info=document.getElementById('bookmark-info-text');
+                    if(info)info.innerHTML=`이전에 감상하시던 <strong>제 ${p.pageIdx}화 — ${TITLES[p.pageIdx]}</strong> 지점이 있습니다. 이어서 읽으시겠습니까?`;
+                    document.getElementById('modal-bookmark').classList.remove('hidden');
+                    return;
+                }
             }
         }catch(e){}
     }
