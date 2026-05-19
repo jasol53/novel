@@ -1311,15 +1311,8 @@ function mobTryAutoPlayMusicOnPage() {
 
 function mobQueueAutoPlayMusic() {
     if (!IS_MOBILE) return;
-
-    setTimeout(() => {
-        if (Date.now() < mobSuppressClickUntil) {
-            setTimeout(mobTryAutoPlayMusicOnPage, 220);
-            return;
-        }
-
-        mobTryAutoPlayMusicOnPage();
-    }, 120);
+    // 슬라이드 애니메이션(0.22s) 후 자동재생 — 클릭 억제와 무관
+    setTimeout(mobTryAutoPlayMusicOnPage, 350);
 }
 
 function mobSetupEvents() {
@@ -1435,12 +1428,7 @@ function mobSetupEvents() {
 
         if (!wasDragging) {
             snapToCurrent(true);
-
-            if (dist < 14 && !isControlTarget(e.target)) {
-                mobSuppressClickUntil = Date.now() + 450;
-                mobToggleUI();
-            }
-
+            // 탭 판정은 click 이벤트에서 단독 처리 (여기서 호출 시 click과 중복됨)
             return;
         }
 
