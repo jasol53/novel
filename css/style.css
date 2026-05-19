@@ -638,14 +638,18 @@
 }
 
 
-/* ── MOBILE PATCH: cover no vertical scroll ── */
+/* ── MOBILE PATCH v3: cover no vertical scroll ── */
 .mob-cover-slide {
     height: 100dvh !important;
     max-height: 100dvh !important;
+    min-height: 0 !important;
     overflow: hidden !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: auto !important;
     justify-content: center !important;
     padding: calc(22px + env(safe-area-inset-top, 0px)) 32px calc(24px + env(safe-area-inset-bottom, 0px)) !important;
     box-sizing: border-box !important;
+    touch-action: pan-x !important;
 }
 
 .mob-cover-slide > div:first-child {
@@ -662,7 +666,7 @@
     flex-shrink: 0 !important;
 }
 
-/* ── MOBILE PATCH: next chapter countdown popup ── */
+/* ── MOBILE PATCH v3: next chapter countdown popup ── */
 #mob-next-chapter-popup {
     position: fixed;
     left: 0;
@@ -716,15 +720,4 @@
     padding: 7px 16px;
     font-size: 12px;
     font-weight: 700;
-}
-
-/* 모바일에서는 PC 드롭캡 효과 제거 */
-.mob-slide-text .prose p.drop::first-letter,
-.mob-slide-text p.drop::first-letter {
-    float: none !important;
-    font-size: inherit !important;
-    line-height: inherit !important;
-    margin: 0 !important;
-    color: inherit !important;
-    font-weight: inherit !important;
 }
