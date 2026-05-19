@@ -1497,11 +1497,17 @@ function mobSetupEvents() {
         }
 
         mobGoToSlide(targetIdx, true);
-        // pointerup = 사용자 제스처 → 사파리 자동재생 정책 통과
-        if (targetIdx !== mobCurSlide) {
-            const nextSlide = mobSlides[targetIdx];
-            if (nextSlide && nextSlide.musicUrl) {
-                mobPlayMusicUrl(nextSlide.musicUrl);
+        // pointerup = 사용자 제스처 → 해당 페이지 music-link 버튼 직접 클릭
+        const nextSlide = mobSlides[targetIdx];
+        if (nextSlide && nextSlide.hasMusicBlock) {
+            const slides = document.querySelectorAll('.mob-slide');
+            const el = slides[targetIdx];
+            if (el) {
+                const ml = el.querySelector('.music-link');
+                if (ml && !ml.classList.contains('playing')) {
+                    mobStopMusic();
+                    ml.click();
+                }
             }
         }
     }, { passive: true });
@@ -1657,14 +1663,26 @@ function mobToggleUI() {
     document.getElementById('mob-bottombar').classList.toggle('visible', mobUIVisible);
 }
 
+function mobPlayOnSlide(idx) {
+    const s = mobSlides[idx];
+    if (!s || !s.hasMusicBlock) return;
+    const slides = document.querySelectorAll('.mob-slide');
+    const el = slides[idx];
+    if (!el) return;
+    const ml = el.querySelector('.music-link');
+    if (ml && !ml.classList.contains('playing')) {
+        mobStopMusic();
+        ml.click();
+    }
+}
+
 function mobPrevChapter() {
     const ci = mobSlides[mobCurSlide].chapterIdx;
     if (ci <= 0) { mobGoToSlide(0); return; }
     const target = mobChapMap[ci - 1];
     if (target !== undefined) {
         mobGoToSlide(target);
-        const s = mobSlides[target];
-        if (s && s.musicUrl) mobPlayMusicUrl(s.musicUrl);
+        mobPlayOnSlide(target);
     }
 }
 
@@ -1675,8 +1693,7 @@ function mobNextChapter() {
         const target = mobChapMap[next];
         if (target !== undefined) {
             mobGoToSlide(target);
-            const s = mobSlides[target];
-            if (s && s.musicUrl) mobPlayMusicUrl(s.musicUrl);
+            mobPlayOnSlide(target);
         }
     }
 }
