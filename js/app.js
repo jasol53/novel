@@ -87,21 +87,52 @@ async function loadConfigAndInitialize() {
         messagingSenderId: "519347716266",
         appId: "1:519347716266:web:5e348bf3a2bdae56e410d3"
     };
+
     const saved = localStorage.getItem('newtokkinam_firebase_config');
+
     let cfg = defaultConfig;
+
     if (saved) {
         try {
-            const clean = saved.replace(/const\s+\w+\s*=\s*/, '').replace(/;$/, '').trim();
+            const clean = saved
+                .replace(/const\s+\w+\s*=\s*/, '')
+                .replace(/;$/, '')
+                .trim();
+
             cfg = new Function(`return ${clean}`)();
-        } catch(e) {}
+        } catch (e) {
+            console.warn(e);
+        }
     }
+
     try {
-        if (firebase.apps.length === 0) firebase.initializeApp(cfg);
+        // Firebase 앱 초기화
+        if (firebase.apps.length === 0) {
+            firebase.initializeApp(cfg);
+        }
+
+        // Safari Firestore 안정화
+        try {
+            firebase.firestore().settings({
+                experimentalForceLongPolling: true,
+                useFetchStreams: false
+            });
+        } catch (e) {
+            console.warn('[Firestore settings skipped]', e);
+        }
+
+        // 익명 로그인
         await firebase.auth().signInAnonymously();
+
+        // Firestore 연결
         db = firebase.firestore();
+
         isFirebaseConnected = true;
+
         setBadge('ok', '뉴토끼남 클라우드 연동');
-    } catch(e) {
+
+    } catch (e) {
+        console.error(e);
         setBadge('err', '연결 실패: ' + e.message);
     }
 }
