@@ -1225,36 +1225,88 @@ function mobStopMusic() {
 function mobPlayMusicUrl(url) {
     if (!url) return false;
 
-    const link = mobGetMusicLinkByUrl(url) || mobGetCurrentMusicLink();
-    if (!mobIsValidButtonNode(link)) return false;
-
     const musicId = getMusicIdFromUrl(url);
 
-    if (currentPlayingMusicId && !sunoAudioObject && currentPlayingType === 'suno') {
-        currentPlayingMusicId = null;
-        currentPlayingType = null;
-        currentPlayingBtn = null;
-    }
-
+    // 이미 같은 곡 재생 중이면 스킵
     if (currentPlayingMusicId && String(currentPlayingMusicId) === String(musicId)) {
-        currentPlayingBtn = link;
-        safeSetPlayingButtonState(true);
         updateMasterPlayPauseIcon(true);
         return true;
     }
 
-    currentPlayingBtn = link;
-    togglePlayMusic(url, link);
-    return true;
+    // 기존 재생 중지
+    if (currentPlayingMusicId) mobStopMusic();
+
+    // DOM에서 버튼 찾기 (없어도 직접 재생)
+    const link = mobGetMusicLinkByUrl(url) || mobGetCurrentMusicLink();
+
+    // Suno UUID 직접 재생
+    const sid = extractSunoId(url);
+    if (sid) {
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sid);
+        if (!isUUID) { showToast('Suno 짧은 링크는 지원 안 돼요.', 'error'); return false; }
+        if (ytAudioPlayer && ytAudioPlayer.pauseVideo) try { ytAudioPlayer.pauseVideo(); } catch(e) {}
+        sunoAudioObject = new Audio(`https://cdn1.suno.ai/${sid}.mp3`);
+        sunoAudioObject.volume = currentVolume / 100;
+        sunoAudioObject.play().catch(() => {});
+        sunoAudioObject.onended = () => {
+            currentPlayingMusicId = null; currentPlayingType = null;
+            currentPlayingBtn = null; updateMasterPlayPauseIcon(false);
+            if (link && mobIsValidButtonNode(link)) link.classList.remove('playing');
+        };
+        currentPlayingMusicId = sid;
+        currentPlayingType = 'suno';
+        currentPlayingBtn = link;
+        if (link && mobIsValidButtonNode(link)) { link.classList.add('playing'); const di = link.querySelector('.fa-compact-disc'); if (di) di.classList.add('fa-spin'); }
+        updateMasterPlayPauseIcon(true);
+        return true;
+    }
+
+    // YouTube
+    const vid = extractVideoId(url);
+    if (vid && ytAudioPlayer && ytAudioPlayer.cueVideoById) {
+        ytAudioPlayer.cueVideoById(vid);
+        setTimeout(() => { try { ytAudioPlayer.setVolume(currentVolume); ytAudioPlayer.playVideo(); } catch(e) {} }, 150);
+        currentPlayingMusicId = vid;
+        currentPlayingType = 'youtube';
+        currentPlayingBtn = link;
+        if (link && mobIsValidButtonNode(link)) link.classList.add('playing');
+        updateMasterPlayPauseIcon(true);
+        return true;
+    }
+
+    // fallback: togglePlayMusic
+    if (link && mobIsValidButtonNode(link)) {
+        currentPlayingBtn = link;
+        togglePlayMusic(url, link);
+        return true;
+    }
+
+    return false;
 }
 
 function mobTryAutoPlayMusicOnPage() {
     if (!IS_MOBILE) return;
-
     const slide = mobSlides[mobCurSlide];
-    if (!slide || !slide.musicUrl) return;
-
-    mobPlayMusicUrl(slide.musicUrl);
+    if (!slide) return;
+    // musicUrl이 있으면 재생, 없어도 hasMusicBlock이면 DOM에서 직접 찾기
+    const url = slide.musicUrl;
+    if (url) {
+        mobPlayMusicUrl(url);
+        return;
+    }
+    if (slide.hasMusicBlock) {
+        const slides = document.querySelectorAll('.mob-slide');
+        const el = slides[mobCurSlide];
+        if (el) {
+            const ml = el.querySelector('.music-link');
+            if (ml) {
+                const dataUrl = ml.getAttribute('data-music-url') || ml.getAttribute('onclick');
+                // onclick에서 URL 추출
+                const m = (ml.getAttribute('onclick') || '').match(/togglePlayMusic\('(.*?)'/);
+                if (m) mobPlayMusicUrl(m[1]);
+            }
+        }
+    }
 }
 
 function mobQueueAutoPlayMusic() {
@@ -1383,7 +1435,12 @@ function mobSetupEvents() {
 
         if (!wasDragging) {
             snapToCurrent(true);
-            // UI 토글은 click 이벤트에서 단독으로 처리 (여기서 호출하면 click과 중복됨)
+
+            if (dist < 14 && !isControlTarget(e.target)) {
+                mobSuppressClickUntil = Date.now() + 450;
+                mobToggleUI();
+            }
+
             return;
         }
 
@@ -1449,6 +1506,15 @@ function mobSetupEvents() {
         snapToCurrent(true);
     }, { passive: true });
 
+    // 포인터가 요소 밖으로 나가도 상태 초기화
+    strip.addEventListener('pointerleave', e => {
+        if (pointerId !== e.pointerId) return;
+        if (dragging) {
+            finishPointer();
+            snapToCurrent(true);
+        }
+    }, { passive: true });
+
     reader.addEventListener('click', e => {
         if (Date.now() < mobSuppressClickUntil) {
             e.preventDefault();
@@ -1493,7 +1559,8 @@ function mobGoToSlide(idx, animate = true) {
     const nextSlide = mobSlides[idx];
     const chapterChanged = !!(prevSlide && nextSlide && prevSlide.chapterIdx !== nextSlide.chapterIdx);
 
-    if (IS_MOBILE && chapterChanged) {
+    // 페이지 이동 시 항상 음악 중지 (해당 페이지에서 재생 중인 경우)
+    if (IS_MOBILE) {
         mobStopMusic();
     }
 
