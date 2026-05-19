@@ -813,6 +813,12 @@ let mobSlideW = 0;        // 슬라이드 너비
 let mobSlideH = 0;        // 슬라이드 높이
 let mobFontSize = 17;     // 모바일 폰트 크기
 
+// 모바일 터치 이벤트 중복/고스트 클릭 방지
+let mobEventsBound = false;
+let mobSwipeLock = false;
+let mobSuppressClickUntil = 0;
+let mobResizeBound = false;
+
 // 터치 상태
 let mobTouchStartX = 0;
 let mobTouchStartY = 0;
@@ -919,30 +925,46 @@ function mobFormatProse(rawContent, isFirstPage) {
     return out.filter(Boolean).join('');
 }
 
-let mobEventsBound = false;
-
 function mobSetupEvents() {
     const strip = document.getElementById('mob-strip');
     if (!strip) return;
 
-    // 이미 이벤트 붙었으면 다시 붙이지 않음
+    // mobBuildReader()가 여러 번 호출되어도 터치 이벤트는 한 번만 붙인다.
     if (mobEventsBound) return;
     mobEventsBound = true;
 
-    let startX = 0, startY = 0, dragging = false, locked = false;
+    let startX = 0;
+    let startY = 0;
+    let dragging = false;
+    let lockedVertical = false;
+    let tracking = false;
+
+    const isControlTarget = (target) => {
+        return !!(target && target.closest(
+            '#mob-topbar, #mob-bottombar, #mob-toc-sheet, button, input, a, .music-link'
+        ));
+    };
+
+    const snapBack = () => {
+        strip.style.transition = 'transform 0.22s ease-out';
+        strip.style.transform = `translateX(${-mobCurSlide * mobSlideW}px)`;
+    };
 
     strip.addEventListener('touchstart', e => {
-        if (e.target.closest('#mob-topbar, #mob-bottombar, #mob-toc-sheet, button, input, a')) return;
+        if (isControlTarget(e.target)) return;
+        if (!e.touches || e.touches.length !== 1) return;
 
+        tracking = true;
+        dragging = false;
+        lockedVertical = false;
         startX = e.touches[0].clientX;
         startY = e.touches[0].clientY;
-        dragging = false;
-        locked = false;
         strip.style.transition = 'none';
     }, { passive: true });
 
     strip.addEventListener('touchmove', e => {
-        if (locked) return;
+        if (!tracking || lockedVertical) return;
+        if (!e.touches || e.touches.length !== 1) return;
 
         const dx = e.touches[0].clientX - startX;
         const dy = e.touches[0].clientY - startY;
@@ -951,7 +973,8 @@ function mobSetupEvents() {
 
         if (!dragging) {
             if (Math.abs(dy) > Math.abs(dx)) {
-                locked = true;
+                lockedVertical = true;
+                snapBack();
                 return;
             }
             dragging = true;
@@ -962,63 +985,102 @@ function mobSetupEvents() {
     }, { passive: false });
 
     strip.addEventListener('touchend', e => {
-        if (e.target.closest('#mob-topbar, #mob-bottombar, #mob-toc-sheet, button, input, a')) return;
+        if (!tracking) return;
+        tracking = false;
 
-        const ex = e.changedTouches[0].clientX;
-        const ey = e.changedTouches[0].clientY;
-        const dx = ex - startX;
-        const dy = ey - startY;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        if (!dragging) {
-            if (dist < 12) mobToggleUI();
-
-            strip.style.transition = 'transform 0.22s ease-out';
-            strip.style.transform = `translateX(${-mobCurSlide * mobSlideW}px)`;
+        if (isControlTarget(e.target)) {
+            snapBack();
             return;
         }
 
-        if (dx < -50 && mobCurSlide < mobSlides.length - 1) {
+        const touch = e.changedTouches && e.changedTouches[0];
+        if (!touch) {
+            snapBack();
+            return;
+        }
+
+        const dx = touch.clientX - startX;
+        const dy = touch.clientY - startY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (!dragging) {
+            if (dist < 14 && !lockedVertical) {
+                mobSuppressClickUntil = Date.now() + 350;
+                mobToggleUI();
+            }
+            snapBack();
+            return;
+        }
+
+        // touchend/click 중복으로 두 장 넘어가는 문제 방지
+        if (mobSwipeLock) {
+            snapBack();
+            return;
+        }
+        mobSwipeLock = true;
+        mobSuppressClickUntil = Date.now() + 450;
+        setTimeout(() => { mobSwipeLock = false; }, 360);
+
+        const threshold = Math.min(90, Math.max(45, mobSlideW * 0.16));
+
+        if (dx < -threshold && mobCurSlide < mobSlides.length - 1) {
             mobGoToSlide(mobCurSlide + 1);
-        } else if (dx > 50 && mobCurSlide > 0) {
+        } else if (dx > threshold && mobCurSlide > 0) {
             mobGoToSlide(mobCurSlide - 1);
         } else {
-            strip.style.transition = 'transform 0.22s ease-out';
-            strip.style.transform = `translateX(${-mobCurSlide * mobSlideW}px)`;
+            snapBack();
         }
     }, { passive: true });
 
-    window.addEventListener('resize', () => {
-        mobSlideW = window.innerWidth;
-        mobSlideH = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    strip.addEventListener('touchcancel', () => {
+        tracking = false;
+        dragging = false;
+        lockedVertical = false;
+        snapBack();
+    }, { passive: true });
 
-        document.querySelectorAll('.mob-slide').forEach(s => {
-            s.style.width = mobSlideW + 'px';
-            s.style.height = mobSlideH + 'px';
+    strip.addEventListener('click', e => {
+        if (Date.now() < mobSuppressClickUntil) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+        }
+        if (isControlTarget(e.target)) return;
+        mobToggleUI();
+    }, true);
+
+    if (!mobResizeBound) {
+        mobResizeBound = true;
+        window.addEventListener('resize', () => {
+            mobSlideW = window.innerWidth;
+            mobSlideH = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
+            document.querySelectorAll('.mob-slide').forEach(s => {
+                s.style.width = mobSlideW + 'px';
+                s.style.height = mobSlideH + 'px';
+            });
+            strip.style.transition = 'none';
+            strip.style.transform = `translateX(${-mobCurSlide * mobSlideW}px)`;
         });
-
-        strip.style.transition = 'none';
-        strip.style.transform = `translateX(${-mobCurSlide * mobSlideW}px)`;
-    });
+    }
 }
-function mobGoToSlide(idx) {
+function mobGoToSlide(idx, animate = true) {
     if (idx < 0 || idx >= mobSlides.length) return;
+
     resetMusicButtons();
     mobCurSlide = idx;
+
     const strip = document.getElementById('mob-strip');
-    strip.style.transition = 'transform 0.22s ease-out';
+    if (!strip) return;
+
+    strip.style.transition = animate ? 'transform 0.22s ease-out' : 'none';
     strip.style.transform = `translateX(${-idx * mobSlideW}px)`;
 
     const slide = mobSlides[idx];
     mobUpdateUI(slide);
     if (slide.chapterIdx >= 0) saveBookmark(idx, 0);
 
-    setTimeout(() => {
-        if (slide.hasMusicBlock && !currentPlayingMusicId) {
-            const slides = document.querySelectorAll('.mob-slide');
-            if (slides[idx]) { const ml = slides[idx].querySelector('.music-link'); if (ml) ml.click(); }
-        }
-    }, 300);
+    // 자동 음악 재생용 강제 .click()은 모바일에서 swipe 종료와 겹쳐 두 장 넘어감/토글 오작동을 만들 수 있어 비활성화.
+    // 음악은 독자가 직접 music-link를 눌러 재생한다.
 }
 
 function mobUpdateUI(slide) {
