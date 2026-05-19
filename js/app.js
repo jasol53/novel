@@ -1,32 +1,34 @@
-/* ── 디버깅용 에러 핸들러 (확인 후 제거) ── */
-function _showErr(text) {
-    try {
-        let box = document.getElementById('_err_overlay');
-        if (!box) {
-            box = document.createElement('div');
-            box.id = '_err_overlay';
-            box.style.cssText = [
-                'position:fixed', 'inset:0', 'background:rgba(0,0,0,0.92)',
-                'color:#ff6b6b', 'font-size:13px', 'font-family:monospace',
-                'padding:20px', 'z-index:999999', 'overflow-y:auto',
-                'white-space:pre-wrap', 'word-break:break-all'
-            ].join(';');
-            box.onclick = () => box.remove();
-            document.body.appendChild(box);
-        }
-        box.textContent += text + '\n\n──────\n\n';
-    } catch(e) {}
-}
-window.onerror = function(msg, src, line, col, err) {
-    _showErr('[ERR] ' + msg + '\n' + src + ':' + line + ':' + col +
-             (err && err.stack ? '\n' + err.stack.slice(0, 400) : ''));
-    return false;
-};
-window.addEventListener('unhandledrejection', e => {
-    const msg = e.reason && e.reason.message ? e.reason.message : String(e.reason);
-    const stack = e.reason && e.reason.stack ? e.reason.stack.slice(0, 400) : '';
-    _showErr('[PROMISE] ' + msg + '\n' + stack);
-});
+/* ── 디버깅용 에러 핸들러 — localStorage 저장 (확인 후 제거) ── */
+(function() {
+    // 이전 세션 에러 있으면 표시
+    const prev = localStorage.getItem('_dbg_last_error');
+    if (prev) {
+        localStorage.removeItem('_dbg_last_error');
+        const box = document.createElement('div');
+        box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.95);color:#ff6b6b;font-size:12px;font-family:monospace;padding:20px;z-index:999999;overflow-y:auto;white-space:pre-wrap;word-break:break-all;';
+        box.innerHTML = '<div style="color:yellow;margin-bottom:10px;">⚠️ 이전 세션 오류 (탭해서 닫기)</div>' + prev;
+        box.onclick = () => box.remove();
+        document.addEventListener('DOMContentLoaded', () => document.body.appendChild(box));
+    }
+
+    function _saveErr(text) {
+        try {
+            const prev = localStorage.getItem('_dbg_last_error') || '';
+            localStorage.setItem('_dbg_last_error', (prev + text + '\n\n').slice(-2000));
+        } catch(e) {}
+    }
+
+    window.onerror = function(msg, src, line, col, err) {
+        _saveErr('[ERR] ' + msg + '\n' + src + ':' + line + ':' + col +
+                 (err && err.stack ? '\n' + err.stack.slice(0, 400) : ''));
+        return false;
+    };
+    window.addEventListener('unhandledrejection', e => {
+        const msg = e.reason && e.reason.message ? e.reason.message : String(e.reason);
+        const stack = e.reason && e.reason.stack ? e.reason.stack.slice(0, 400) : '';
+        _saveErr('[PROMISE] ' + msg + '\n' + stack);
+    });
+})();
 
 /* ════════════════════════════════════════════
    GLOBAL STATE
