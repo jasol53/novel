@@ -175,9 +175,7 @@
             display: none;
             overflow: hidden;
             touch-action: none;
-            /* safe area */
-            padding-top: env(safe-area-inset-top, 0px);
-            padding-bottom: env(safe-area-inset-bottom, 0px);
+
         }
         #mob-reader.active { display: block; }
 
@@ -194,7 +192,6 @@
         .mob-slide {
             position: relative;
             flex-shrink: 0;
-            height: 100%;
             overflow: hidden;
             background: var(--paper);
             display: flex;
@@ -203,7 +200,7 @@
         .mob-slide-text {
             width: 100%;
             height: 100%;
-            padding: 28px 24px 20px;
+            padding: 28px 24px env(safe-area-inset-bottom, 20px);
             overflow: hidden;
             font-family: var(--serif);
             font-size: 17px;
@@ -857,20 +854,17 @@ let preMutedVolume = 15;
    INIT
    ════════════════════════════════════════════ */
 window.onload = function() {
-    loadConfigAndInitialize();
     initDragAndDrop();
     const urlParams = new URLSearchParams(window.location.search);
     const cloudBookId = urlParams.get('id');
     if (cloudBookId) {
         bookmarkState.activeBookId = cloudBookId;
-        firebase.auth().onAuthStateChanged(user => {
-            if (user) {
-                loadBookFromCloud(cloudBookId);
-            } else {
-                setTimeout(() => loadBookFromCloud(cloudBookId), 2000);
-            }
+        // Firebase 초기화 완료 후 로드
+        loadConfigAndInitialize().then(() => {
+            loadBookFromCloud(cloudBookId);
         });
     } else {
+        loadConfigAndInitialize();
         loadLocalBookState();
         renderChapters();
         switchViewMode('author');
@@ -1615,6 +1609,7 @@ let mobCurSlide = 0;      // 현재 슬라이드 인덱스
 let mobChapMap = [];      // chapterIdx → slide 시작 인덱스
 let mobUIVisible = false; // 상단/하단 UI 토글 상태
 let mobSlideW = 0;        // 슬라이드 너비
+let mobSlideH = 0;        // 슬라이드 높이
 let mobFontSize = 17;     // 모바일 폰트 크기
 
 // 터치 상태
@@ -1630,6 +1625,7 @@ function mobBuildReader() {
     mobSlides = [];
     mobChapMap = [];
     mobSlideW = window.innerWidth;
+    mobSlideH = window.innerHeight;
     mobCurSlide = 0;
 
     // strip 너비 설정
@@ -1640,6 +1636,7 @@ function mobBuildReader() {
     const coverSlide = document.createElement('div');
     coverSlide.className = 'mob-slide';
     coverSlide.style.width = mobSlideW + 'px';
+    coverSlide.style.height = mobSlideH + 'px';
 
     const coverImgHtml = info.url
         ? `<div style="width:min(72vw,280px);aspect-ratio:10/16;border-radius:14px;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,0.28);margin-bottom:28px;flex-shrink:0;"><img src="${info.url}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.style.display='none'"></div>`
@@ -1670,6 +1667,7 @@ function mobBuildReader() {
             const slide = document.createElement('div');
             slide.className = 'mob-slide';
             slide.style.width = mobSlideW + 'px';
+            slide.style.height = mobSlideH + 'px';
 
             slide.innerHTML = `<div class="mob-slide-text" style="font-size:${mobFontSize}px;">${htmlContent}${isLast ? '<div class="chapter-end-marker" style="font-size:0.8em;margin-top:1.5em!important;">— 제'+(ci+1)+'화 끝 —</div>' : ''}</div>`;
             strip.appendChild(slide);
@@ -1778,7 +1776,8 @@ function mobSetupEvents() {
 
     window.addEventListener('resize', () => {
         mobSlideW = window.innerWidth;
-        document.querySelectorAll('.mob-slide').forEach(s => s.style.width = mobSlideW + 'px');
+        mobSlideH = window.innerHeight;
+        document.querySelectorAll('.mob-slide').forEach(s => { s.style.width = mobSlideW + 'px'; s.style.height = mobSlideH + 'px'; });
         strip.style.transition = 'none';
         strip.style.transform = `translateX(${-mobCurSlide * mobSlideW}px)`;
     });
@@ -2324,7 +2323,14 @@ async function saveToCloud(){
 }
 
 async function loadBookFromCloud(id){
-    if(!isFirebaseConnected){setTimeout(()=>loadBookFromCloud(id),1000);return;}
+    if(!isFirebaseConnected){
+        // 최대 5초 대기 후 재시도
+        await new Promise(r => setTimeout(r, 1000));
+        if(!isFirebaseConnected){
+            showToast('클라우드 연결 실패. 페이지를 새로고침 해주세요.','error');
+            return;
+        }
+    }
     try{
         const doc=await db.collection('novels').doc(id).get();
         if(doc.exists){
