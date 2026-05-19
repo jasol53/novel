@@ -1,34 +1,39 @@
-/* ── 디버깅용 에러 핸들러 — localStorage 저장 (확인 후 제거) ── */
-(function() {
-    // 이전 세션 에러 있으면 표시
-    const prev = localStorage.getItem('_dbg_last_error');
-    if (prev) {
-        localStorage.removeItem('_dbg_last_error');
-        const box = document.createElement('div');
-        box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.95);color:#ff6b6b;font-size:12px;font-family:monospace;padding:20px;z-index:999999;overflow-y:auto;white-space:pre-wrap;word-break:break-all;';
-        box.innerHTML = '<div style="color:yellow;margin-bottom:10px;">⚠️ 이전 세션 오류 (탭해서 닫기)</div>' + prev;
-        box.onclick = () => box.remove();
-        document.addEventListener('DOMContentLoaded', () => document.body.appendChild(box));
-    }
-
-    function _saveErr(text) {
-        try {
-            const prev = localStorage.getItem('_dbg_last_error') || '';
-            localStorage.setItem('_dbg_last_error', (prev + text + '\n\n').slice(-2000));
-        } catch(e) {}
-    }
-
-    window.onerror = function(msg, src, line, col, err) {
-        _saveErr('[ERR] ' + msg + '\n' + src + ':' + line + ':' + col +
-                 (err && err.stack ? '\n' + err.stack.slice(0, 400) : ''));
-        return false;
+/* ── 디버깅용 에러 로거 (확인 후 제거) ── */
+function _dbgLog(type, msg, extra) {
+    const entry = {
+        type, msg: String(msg).slice(0, 500),
+        extra: extra ? String(extra).slice(0, 500) : '',
+        ua: navigator.userAgent.slice(0, 150),
+        t: new Date().toISOString(),
+        slide: typeof mobCurSlide !== 'undefined' ? mobCurSlide : -1,
+        playing: typeof currentPlayingMusicId !== 'undefined' ? String(currentPlayingMusicId).slice(0,100) : '',
+        sunoNull: typeof sunoAudioObject !== 'undefined' ? (sunoAudioObject === null ? 'null' : 'exists') : 'undef'
     };
-    window.addEventListener('unhandledrejection', e => {
-        const msg = e.reason && e.reason.message ? e.reason.message : String(e.reason);
-        const stack = e.reason && e.reason.stack ? e.reason.stack.slice(0, 400) : '';
-        _saveErr('[PROMISE] ' + msg + '\n' + stack);
-    });
-})();
+    // localStorage 백업
+    try {
+        const prev = JSON.parse(localStorage.getItem('_dbg_logs') || '[]');
+        prev.push(entry);
+        localStorage.setItem('_dbg_logs', JSON.stringify(prev.slice(-10)));
+    } catch(e) {}
+    // Firestore 저장 (db 준비되면)
+    const save = () => {
+        if (typeof db !== 'undefined' && db) {
+            db.collection('_debug_logs').add(entry).catch(() => {});
+        } else {
+            setTimeout(save, 1500);
+        }
+    };
+    save();
+}
+
+window.onerror = function(msg, src, line, col, err) {
+    _dbgLog('onerror', msg + ' @ ' + src + ':' + line, err && err.stack ? err.stack.slice(0,400) : '');
+    return false;
+};
+window.addEventListener('unhandledrejection', e => {
+    const msg = e.reason && e.reason.message ? e.reason.message : String(e.reason);
+    _dbgLog('promise', msg, e.reason && e.reason.stack ? e.reason.stack.slice(0,400) : '');
+});
 
 /* ════════════════════════════════════════════
    GLOBAL STATE
@@ -1529,17 +1534,16 @@ function mobSetupEvents() {
         }
 
         mobGoToSlide(targetIdx, true);
-        // pointerup = 사용자 제스처 → 해당 페이지 music-link 버튼 직접 클릭
-        const nextSlide = mobSlides[targetIdx];
-        if (nextSlide && nextSlide.hasMusicBlock) {
+        // 회차가 바뀔 때만 음악 처리 (같은 회차 내 이동 시 음악 유지)
+        const prevSl = mobSlides[mobCurSlide - (targetIdx > mobCurSlide ? 0 : 0)];
+        const nextSl = mobSlides[targetIdx];
+        const chCh = prevSl && nextSl && prevSl.chapterIdx !== nextSl.chapterIdx;
+        if (chCh && nextSl && nextSl.hasMusicBlock) {
             const slides = document.querySelectorAll('.mob-slide');
             const el = slides[targetIdx];
             if (el) {
                 const ml = el.querySelector('.music-link');
-                if (ml && !ml.classList.contains('playing')) {
-                    mobStopMusic();
-                    ml.click();
-                }
+                if (ml) { mobStopMusic(); ml.click(); }
             }
         }
     }, { passive: true });
