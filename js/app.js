@@ -2244,9 +2244,22 @@ function safeSetPlayingButtonState(isPlaying) {
 }
 
 function resetMusicButtons(){
+    // 오디오 객체 안전하게 정리
+    if (sunoAudioObject) {
+        try { sunoAudioObject.pause(); sunoAudioObject.src = ''; } catch(e) {}
+        sunoAudioObject = null;
+    }
+    if (ytAudioPlayer) {
+        try { ytAudioPlayer.pauseVideo(); } catch(e) {}
+    }
+    currentPlayingMusicId = null;
+    currentPlayingBtn = null;
+    currentPlayingType = null;
+    updateMasterPlayPauseIcon(false);
+
     document.querySelectorAll('.music-link.playing').forEach(btn => {
         if (!mobIsValidButtonNode(btn)) return;
-        if (mobIsValidButtonNode(btn)) btn.classList.remove('playing');
+        btn.classList.remove('playing');
         const icon = btn.querySelector('.fa-compact-disc');
         if (icon) icon.classList.remove('fa-spin');
     });
