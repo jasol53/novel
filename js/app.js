@@ -50,26 +50,26 @@ let preMutedVolume = 15;
 /* ════════════════════════════════════════════
    INIT
    ════════════════════════════════════════════ */
-window.onload = function() {
-    loadConfigAndInitialize();
+window.onload = async function() {
+    await loadConfigAndInitialize();
     initDragAndDrop();
+
     const urlParams = new URLSearchParams(window.location.search);
     const cloudBookId = urlParams.get('id');
+
     if (cloudBookId) {
         bookmarkState.activeBookId = cloudBookId;
-        firebase.auth().onAuthStateChanged(user => {
-            if (user) {
-                db = firebase.firestore();
-                isFirebaseConnected = true;
-                setBadge('ok', '뉴토끼남 클라우드 연동');
-                loadBookFromCloud(cloudBookId);
-            }
-        });
+        if (isFirebaseConnected && db) {
+            loadBookFromCloud(cloudBookId);
+        } else {
+            setBadge('err', '연결 실패: Firebase 초기화 실패');
+        }
     } else {
         loadLocalBookState();
         renderChapters();
         switchViewMode('author');
     }
+
     window.addEventListener('resize', () => {
         if (bookState.viewMode === 'reader') updateDynamicCoverOnResize();
     });
@@ -395,59 +395,41 @@ function sanitizeAndFormatBold(text) {
     return text;
 }
 
-function escapeAttrValue(value) {
-    return String(value || '')
-        .replace(/&/g, '&amp;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-}
-
 function parseSpecialBlocks(text) {
-    // 닫는 태그는 [/tag]와 [／tag] 둘 다 허용
-    text = text.replace(/\[lyrics\]([\s\S]*?)\[(?:\/|／)lyrics\]/g, (_, c) => {
+    text = text.replace(/\[lyrics\]([\s\S]*?)\[\/lyrics\]/g, (_, c) => {
         const inner = c.trim().split('\n').map(l => sanitizeAndFormatBold(l)).join('<br>');
         return `\n<div class="lyrics-block font-serif">${inner}</div>\n`;
     });
-
     text = text.replace(/\[chat\]([\s\S]*?)\[(?:\/|／)chat\]/g, (_, c) => {
         const lines = c.trim().split('\n').map(line => {
             const ci = line.indexOf(':');
             if (ci !== -1) {
-                const sender = sanitizeAndFormatBold(line.substring(0, ci).trim());
-                const msg = sanitizeAndFormatBold(line.substring(ci + 1).trim());
-                const cls = line.substring(0, ci).trim() === '준환' ? 'chat-right' : 'chat-left';
+                const sender = line.substring(0, ci).trim();
+                const msg = line.substring(ci+1).trim();
+                const cls = sender === '준환' ? 'chat-right' : 'chat-left';
                 return `<div class="chat-line ${cls}"><span class="chat-sender">${sender}</span>: ${msg}</div>`;
             }
-            return `<div class="chat-line chat-left">${sanitizeAndFormatBold(line.trim())}</div>`;
+            return `<div class="chat-line chat-left">${line.trim()}</div>`;
         }).join('');
         return `\n<div class="chat-block">${lines}</div>\n`;
     });
-
-    text = text.replace(/\[flashback\]([\s\S]*?)\[(?:\/|／)flashback\]/g, (_, c) => {
+    text = text.replace(/\[flashback\]([\s\S]*?)\[\/flashback\]/g, (_, c) => {
         const inner = c.trim().split('\n').map(l => sanitizeAndFormatBold(l.trim())).filter(Boolean).join('<br>');
         return `\n<div class="flashback-block font-serif">${inner}</div>\n`;
     });
-
-    text = text.replace(/\[music=(.*?)\]([\s\S]*?)\[(?:\/|／)music\]/g, (_, link, title) => {
+    text = text.replace(/\[music=(.*?)\](.*?)\[\/music\]/g, (_, link, title) => {
         const clean = link.trim().replace(/"/g, '&quot;');
-        const attrUrl = escapeAttrValue(link.trim());
-        return `\n<div class="music-block"><a onclick="togglePlayMusic('${clean}', this)" data-music-url="${attrUrl}" class="music-link"><i class="fa-solid fa-compact-disc"></i> <span>${sanitizeAndFormatBold(title.trim())}</span></a></div>\n`;
+        return `\n<div class="music-block"><a onclick="togglePlayMusic('${clean}', this)" class="music-link"><i class="fa-solid fa-compact-disc"></i> <span>${title.trim()}</span></a></div>\n`;
     });
-
-    text = text.replace(/\[autoplay=(.*?)\]([\s\S]*?)\[(?:\/|／)autoplay\]/g, (_, link, title) => {
+    // [autoplay=링크]곡명[/autoplay] — 화 진입 시 자동재생, 버튼은 보임
+    text = text.replace(/\[autoplay=(.*?)\](.*?)\[\/autoplay\]/g, (_, link, title) => {
         const clean = link.trim().replace(/"/g, '&quot;');
-        const attrUrl = escapeAttrValue(link.trim());
-        return `\n<div class="music-block music-autoplay"><a onclick="togglePlayMusic('${clean}', this)" data-music-url="${attrUrl}" data-autoplay="true" class="music-link"><i class="fa-solid fa-compact-disc"></i> <span>${sanitizeAndFormatBold(title.trim())}</span></a></div>\n`;
+        return `\n<div class="music-block music-autoplay"><a onclick="togglePlayMusic('${clean}', this)" class="music-link" data-autoplay="true"><i class="fa-solid fa-compact-disc"></i> <span>${title.trim()}</span></a></div>\n`;
     });
-
-    text = text.replace(/\[image=(.*?)\]([\s\S]*?)\[(?:\/|／)image\]/g, (_, link, cap) => {
+    text = text.replace(/\[image=(.*?)\]([\s\S]*?)\[\/image\]/g, (_, link, cap) => {
         const clean = convertGoogleDriveLink(link.trim());
-        const safeCap = sanitizeAndFormatBold(cap.trim());
-        return `\n<div class="illustration-block"><img src="${escapeAttrValue(clean)}" alt="${escapeAttrValue(cap.trim())}" class="illustration-img" onerror="this.parentElement.style.display='none'"><p class="illustration-caption">${safeCap}</p></div>\n`;
+        return `\n<div class="illustration-block"><img src="${clean}" alt="${cap.trim()}" class="illustration-img" onerror="this.parentElement.style.display='none'"><p class="illustration-caption">${cap.trim()}</p></div>\n`;
     });
-
     return text;
 }
 
@@ -553,86 +535,210 @@ function goHome() { if (isAuthorUnlocked) switchViewMode('author'); }
    ════════════════════════════════════════════ */
 // 모바일 페이지 분량은 기기 높이/폰트 크기/하단 UI 안전영역을 고려해 동적으로 계산한다.
 function getMobCharsPerPage() {
-    const vw = Math.max(320, window.innerWidth || 360);
-    const vh = Math.max(480, (window.visualViewport ? window.visualViewport.height : window.innerHeight) || 640);
+    // 옛 글자 수 기반 분할은 더 이상 주력으로 쓰지 않음.
+    // 측정용 DOM을 만들 수 없는 아주 예외적인 상황에서만 fallback으로 사용.
+    const metrics = getMobilePageMetrics();
     const fs = mobFontSize || 17;
-
-    // Safari 주소창/하단바 + 앱 하단 조작 UI가 본문을 가리지 않도록
-    // fixed2의 슬라이드 로직은 유지하고, 페이지당 글자 수만 더 보수적으로 잡는다.
-    const reservedTop = 72;
-    const reservedBottom = 188;
-    const usableH = Math.max(230, vh - reservedTop - reservedBottom);
-    const usableW = Math.max(230, vw - 56);
-
-    const lineH = fs * 2.08;
-    const lines = Math.max(6, Math.floor(usableH / lineH));
-    const charsPerLine = Math.max(10, Math.floor(usableW / (fs * 1.02)));
-
-    return Math.max(120, Math.min(260, Math.floor(lines * charsPerLine * 0.68)));
+    const lineH = fs * 1.82;
+    const lines = Math.max(6, Math.floor(metrics.usableH / lineH));
+    const charsPerLine = Math.max(10, Math.floor(metrics.usableW / (fs * 0.98)));
+    return Math.max(90, Math.min(420, Math.floor(lines * charsPerLine * 0.82)));
 }
 
 // 특수 블록 마커 (분할 시 통째로 유지)
 const BLOCK_MARKER = '\x01BLOCK\x01';
 
-function splitChapterIntoMobPages(content) {
-    // 1. 특수 블록을 마커로 치환해서 분할 방지
+function getMobilePageMetrics() {
+    const vw = Math.max(320, window.innerWidth || 360);
+    const vh = Math.max(480, (window.visualViewport ? window.visualViewport.height : window.innerHeight) || 640);
+    const fs = mobFontSize || 17;
+
+    // preset은 해상도별 안전영역만 잡는다.
+    // 실제 페이지 수는 아래의 DOM 높이 측정으로 결정하므로, 폰트 크기 변경에도 자연스럽게 대응된다.
+    let preset;
+    if (vh <= 650) preset = { top: 30, bottom: 128, side: 22 };
+    else if (vh <= 720) preset = { top: 32, bottom: 136, side: 22 };
+    else if (vh <= 800) preset = { top: 34, bottom: 144, side: 24 };
+    else if (vh <= 880) preset = { top: 36, bottom: 152, side: 24 };
+    else preset = { top: 40, bottom: 160, side: 26 };
+
+    // 폰트가 커질수록 줄높이/문단 margin 오차가 커지므로 아래쪽만 더 보수적으로 확보.
+    const fontExtra = Math.max(0, fs - 17);
+    const top = preset.top + Math.round(fontExtra * 1.5);
+    const bottom = preset.bottom + Math.round(fontExtra * 9);
+    const side = preset.side;
+
+    return {
+        vw, vh, top, bottom, side,
+        usableW: Math.max(220, vw - side * 2),
+        usableH: Math.max(260, vh - top - bottom)
+    };
+}
+
+function applyMobilePageMetrics() {
+    const m = getMobilePageMetrics();
+    const root = document.documentElement;
+    root.style.setProperty('--mob-page-top', m.top + 'px');
+    root.style.setProperty('--mob-page-bottom', m.bottom + 'px');
+    root.style.setProperty('--mob-page-side', m.side + 'px');
+    root.style.setProperty('--mob-page-font-size', (mobFontSize || 17) + 'px');
+    return m;
+}
+
+function getMobileMeasureBox() {
+    let box = document.getElementById('mob-measure-box');
+    const m = applyMobilePageMetrics();
+    if (!box) {
+        box = document.createElement('div');
+        box.id = 'mob-measure-box';
+        box.className = 'mob-slide-text';
+        box.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(box);
+    }
+    box.style.position = 'fixed';
+    box.style.left = '-99999px';
+    box.style.top = '0';
+    box.style.visibility = 'hidden';
+    box.style.pointerEvents = 'none';
+    box.style.width = m.vw + 'px';
+    box.style.height = m.vh + 'px';
+    box.style.fontSize = (mobFontSize || 17) + 'px';
+    box.style.overflow = 'hidden';
+    box.style.boxSizing = 'border-box';
+    return box;
+}
+
+function mobRawToHtmlForMeasure(raw, endHtml = '') {
+    return mobFormatProse(raw || '', false) + (endHtml || '');
+}
+
+function mobRawFits(raw, endHtml = '') {
+    const box = getMobileMeasureBox();
+    box.innerHTML = mobRawToHtmlForMeasure(raw, endHtml);
+    // Safari에서 scrollHeight가 소수점/폰트 로딩 때문에 1~2px 흔들릴 수 있어 3px 여유만 둔다.
+    return box.scrollHeight <= box.clientHeight + 3;
+}
+
+function protectMobileBlocks(content) {
     const blocks = [];
-    let processed = content.replace(/\r/g, '');
-
-    // 특수 블록 패턴들
+    let processed = (content || '').replace(/\r/g, '');
     const blockPatterns = [
-        /\[\[transition\]\][\s\S]*?\[\[(?:\/|／)transition\]\]/g,
-        /\[chat\][\s\S]*?\[(?:\/|／)chat\]/g,
-        /\[flashback\][\s\S]*?\[(?:\/|／)flashback\]/g,
-        /\[lyrics\][\s\S]*?\[(?:\/|／)lyrics\]/g,
-        /\[image=.*?\][\s\S]*?\[(?:\/|／)image\]/g,
-        /\[music=.*?\][\s\S]*?\[(?:\/|／)music\]/g,
-        /\[autoplay=.*?\][\s\S]*?\[(?:\/|／)autoplay\]/g,
+        /\[\[transition\]\][\s\S]*?\[\[\/transition\]\]/g,
+        /\[chat\][\s\S]*?\[\/chat\]/g,
+        /\[flashback\][\s\S]*?\[\/flashback\]/g,
+        /\[lyrics\][\s\S]*?\[\/lyrics\]/g,
+        /\[image=.*?\][\s\S]*?\[\/image\]/g,
+        /\[music=.*?\].*?\[\/music\]/g,
+        /\[autoplay=.*?\].*?\[\/autoplay\]/g,
     ];
-
     for (const pattern of blockPatterns) {
         processed = processed.replace(pattern, match => {
             blocks.push(match);
             return `${BLOCK_MARKER}${blocks.length - 1}${BLOCK_MARKER}`;
         });
     }
+    return { processed, blocks };
+}
 
-    // 2. 문단 단위로 쪼개기
-    const paragraphs = processed.split(/\n/);
+function restoreMobileBlocks(text, blocks) {
+    return (text || '').replace(new RegExp(`${BLOCK_MARKER}(\\d+)${BLOCK_MARKER}`, 'g'), (_, idx) => blocks[parseInt(idx)] || '');
+}
+
+function tokenizeMobileContent(content) {
+    const { processed, blocks } = protectMobileBlocks(content);
+    return processed.split('\n').map(line => {
+        const restored = restoreMobileBlocks(line, blocks);
+        const isBlock = line.trim().startsWith(BLOCK_MARKER);
+        const isBlank = restored.trim() === '';
+        return { raw: restored, isBlock, isBlank };
+    });
+}
+
+function splitLongTextTokenToPages(raw, pages) {
+    let remaining = raw || '';
+    while (remaining.length > 0) {
+        let lo = 1;
+        let hi = remaining.length;
+        let best = 0;
+        while (lo <= hi) {
+            const mid = Math.floor((lo + hi) / 2);
+            const candidate = remaining.slice(0, mid);
+            if (mobRawFits(candidate)) {
+                best = mid;
+                lo = mid + 1;
+            } else {
+                hi = mid - 1;
+            }
+        }
+        // 어떤 이유로 한 글자도 안 맞는 경우 무한루프 방지
+        if (best <= 0) best = Math.min(remaining.length, Math.max(1, getMobCharsPerPage()));
+
+        // 가능하면 단어/문장 중간을 덜 끊도록 뒤쪽 공백이나 문장부호에서 자른다.
+        let cut = best;
+        if (best < remaining.length) {
+            const windowText = remaining.slice(Math.max(0, best - 24), best + 1);
+            const rel = Math.max(
+                windowText.lastIndexOf(' '),
+                windowText.lastIndexOf('。'),
+                windowText.lastIndexOf('.'),
+                windowText.lastIndexOf('!'),
+                windowText.lastIndexOf('?'),
+                windowText.lastIndexOf('…'),
+                windowText.lastIndexOf(','),
+                windowText.lastIndexOf('，')
+            );
+            if (rel > 6) cut = Math.max(1, Math.max(0, best - 24) + rel + 1);
+        }
+
+        pages.push(remaining.slice(0, cut).trimEnd());
+        remaining = remaining.slice(cut).trimStart();
+    }
+}
+
+function splitChapterIntoMobPages(content) {
+    applyMobilePageMetrics();
+    const tokens = tokenizeMobileContent(content);
     const pages = [];
-    let currentPage = [];
-    let currentLen = 0;
+    let current = '';
 
-    for (const para of paragraphs) {
-        const isBlock = para.startsWith(BLOCK_MARKER);
-        const paraLen = isBlock ? 0 : para.length; // 블록은 길이 0 취급 (강제 안 끊김)
+    const appendLine = (base, line) => base ? `${base}\n${line}` : line;
+    const commit = () => {
+        if (current.trim() !== '') pages.push(current);
+        current = '';
+    };
 
-        // 빈 줄
-        if (!isBlock && para.trim() === '') {
-            currentPage.push(para);
+    for (const token of tokens) {
+        // 과도한 빈 줄은 페이지 첫머리에 쌓지 않음
+        if (token.isBlank && current.trim() === '') continue;
+
+        const candidate = appendLine(current, token.raw);
+        if (mobRawFits(candidate)) {
+            current = candidate;
             continue;
         }
 
-        // 블록이거나 현재 페이지가 비어있으면 그냥 추가
-        if (isBlock || currentLen === 0) {
-            currentPage.push(para);
-            currentLen += paraLen;
-        } else if (currentLen + paraLen > getMobCharsPerPage()) {
-            // 초과 → 새 페이지로
-            pages.push(currentPage.join('\n'));
-            currentPage = [para];
-            currentLen = paraLen;
-        } else {
-            currentPage.push(para);
-            currentLen += paraLen;
+        // 현재 페이지에 무언가 있으면 먼저 확정하고, 같은 토큰을 새 페이지에서 다시 판단
+        if (current.trim() !== '') {
+            commit();
+            if (mobRawFits(token.raw)) {
+                current = token.raw;
+                continue;
+            }
         }
-    }
-    if (currentPage.length > 0) pages.push(currentPage.join('\n'));
 
-    // 3. 마커 복원
-    return pages.map(page =>
-        page.replace(new RegExp(`${BLOCK_MARKER}(\\d+)${BLOCK_MARKER}`, 'g'), (_, idx) => blocks[parseInt(idx)])
-    );
+        // 특수 블록은 너무 커도 쪼개지 말고 단독 페이지로 둔다.
+        if (token.isBlock) {
+            pages.push(token.raw);
+            current = '';
+            continue;
+        }
+
+        // 긴 문단은 실제 높이 기준으로 글자 단위 이진탐색 분할
+        splitLongTextTokenToPages(token.raw, pages);
+    }
+
+    commit();
+    return pages.length ? pages : [''];
 }
 
 function buildReaderPages() {
@@ -908,6 +1014,7 @@ function mobBuildReader() {
     mobChapMap = [];
     mobSlideW = window.innerWidth;
     mobSlideH = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
+    applyMobilePageMetrics();
     mobCurSlide = 0;
 
     // strip 너비 설정
@@ -921,7 +1028,7 @@ function mobBuildReader() {
     coverSlide.style.height = mobSlideH + 'px';
 
     const coverImgHtml = info.url
-        ? `<div style="width:min(72vw,280px);aspect-ratio:10/16;border-radius:14px;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,0.28);margin-bottom:28px;flex-shrink:0;"><img src="${info.url}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.style.display='none'"></div>`
+        ? `<div class="mob-cover-art"><img src="${info.url}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.style.display='none'"></div>`
         : `<div style="font-size:52px;margin-bottom:28px;color:var(--accent2)">❧</div>`;
     coverSlide.innerHTML = `
         <div class="mob-cover-slide">
@@ -930,7 +1037,7 @@ function mobBuildReader() {
             <p style="font-size:12px;color:var(--ink3);line-height:1.7;margin-bottom:20px;font-style:italic;max-width:260px;">${bookState.description || ''}</p>
             <div style="width:32px;height:1px;background:var(--accent2);margin:0 auto 14px;"></div>
             <p style="font-family:var(--sans);font-size:12px;color:var(--ink2);">${bookState.author} 지음</p>
-            <p style="font-family:var(--sans);font-size:11px;color:var(--ink3);margin-top:28px;animation:pulse 2s ease-in-out infinite;">← 스와이프 →</p>
+            <p class="mob-cover-hint">← 스와이프 →</p>
         </div>`;
     strip.appendChild(coverSlide);
     mobSlides.push({ type: 'cover', chapterIdx: -1, pageInChapter: 0, totalInChapter: 1, hasMusicBlock: false });
@@ -999,114 +1106,6 @@ function mobFormatProse(rawContent, isFirstPage) {
     }
     return out.filter(Boolean).join('');
 }
-
-
-// Mobile page music autoplay
-function mobTryAutoPlayMusicOnPage() {
-    const slides = document.querySelectorAll('.mob-slide');
-    const slide = slides[mobCurSlide];
-    if (!slide) return;
-
-    const musicLink = slide.querySelector('.music-link');
-
-    // 현재 페이지에 음악 코드가 없으면 모바일 BGM은 정지
-    if (!musicLink) {
-        if (currentPlayingMusicId) resetMusicButtons();
-        return;
-    }
-
-    const url = musicLink.dataset.musicUrl || (() => {
-        const onclickAttr = musicLink.getAttribute('onclick') || '';
-        const match = onclickAttr.match(/togglePlayMusic\('([\s\S]*?)'/);
-        return match ? match[1] : '';
-    })();
-
-    if (!url) return;
-
-    const tid = extractSunoId(url) || extractVideoId(url);
-    if (!tid) return;
-
-    // 이미 같은 곡이 재생 중이면 버튼 상태만 현재 페이지 버튼으로 동기화
-    if (currentPlayingMusicId === tid) {
-        currentPlayingBtn = musicLink;
-        musicLink.classList.add('playing');
-        const icon = musicLink.querySelector('.fa-compact-disc');
-        if (icon) icon.classList.add('fa-spin');
-        updateMasterPlayPauseIcon(true);
-        return;
-    }
-
-    // .click()을 쓰지 않고 직접 호출해서 슬라이드/탭 이벤트와 충돌하지 않게 한다.
-    togglePlayMusic(url, musicLink);
-}
-
-
-// Next chapter transition popup
-const NEXT_CHAPTER_DELAY_SEC = 3;
-let mobNextChapterCountdownTimer = null;
-
-function mobIsLastPageOfChapter(idx) {
-    const curSlide = mobSlides[idx];
-    const nextSlide = mobSlides[idx + 1];
-
-    if (!curSlide || curSlide.chapterIdx < 0) return false;
-    if (!nextSlide) return false;
-
-    return nextSlide.chapterIdx !== curSlide.chapterIdx;
-}
-
-function mobCancelNextChapterPopup() {
-    if (mobNextChapterCountdownTimer) {
-        clearInterval(mobNextChapterCountdownTimer);
-        mobNextChapterCountdownTimer = null;
-    }
-
-    const popup = document.getElementById('mob-next-chapter-popup');
-    if (popup) popup.classList.remove('show');
-}
-
-function mobShowNextChapterPopup(targetIdx) {
-    mobCancelNextChapterPopup();
-
-    let remain = NEXT_CHAPTER_DELAY_SEC;
-
-    let popup = document.getElementById('mob-next-chapter-popup');
-
-    if (!popup) {
-        popup = document.createElement('div');
-        popup.id = 'mob-next-chapter-popup';
-
-        popup.innerHTML = `
-            <div class="mob-next-chapter-card">
-                <div class="mob-next-chapter-title">해당 회차의 마지막 페이지입니다</div>
-                <div class="mob-next-chapter-desc">
-                    <span id="mob-next-chapter-count">3</span>초 후 다음 회차로 이동합니다.
-                </div>
-                <button class="mob-next-chapter-cancel" onclick="mobCancelNextChapterPopup()">취소</button>
-            </div>
-        `;
-
-        document.body.appendChild(popup);
-    }
-
-    const countEl = document.getElementById('mob-next-chapter-count');
-    if (countEl) countEl.textContent = remain;
-
-    popup.classList.add('show');
-
-    mobNextChapterCountdownTimer = setInterval(() => {
-        remain -= 1;
-
-        if (countEl) countEl.textContent = remain;
-
-        if (remain <= 0) {
-            mobCancelNextChapterPopup();
-            mobGoToSlide(targetIdx, true, true);
-        }
-    }, 1000);
-}
-
-
 
 function mobSetupEvents() {
     const reader = document.getElementById('mob-reader');
@@ -1267,6 +1266,7 @@ function mobSetupEvents() {
         const resizeMobileReader = () => {
             mobSlideW = window.innerWidth;
             mobSlideH = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
+            applyMobilePageMetrics();
             document.querySelectorAll('.mob-slide').forEach(s => {
                 s.style.width = mobSlideW + 'px';
                 s.style.height = mobSlideH + 'px';
@@ -1278,25 +1278,9 @@ function mobSetupEvents() {
         if (window.visualViewport) window.visualViewport.addEventListener('resize', resizeMobileReader);
     }
 }
-function mobGoToSlide(idx, animate = true, force = false) {
+function mobGoToSlide(idx, animate = true) {
     if (idx < 0 || idx >= mobSlides.length) return;
 
-    // 회차 마지막 페이지에서 다음 회차로 넘어가려는 경우, 즉시 넘기지 않고 안내 팝업을 띄운다.
-    if (!force && idx > mobCurSlide && mobIsLastPageOfChapter(mobCurSlide)) {
-        const curSlide = mobSlides[mobCurSlide];
-        const targetSlide = mobSlides[idx];
-        if (curSlide && targetSlide && targetSlide.chapterIdx !== curSlide.chapterIdx) {
-            const strip = document.getElementById('mob-strip');
-            if (strip) {
-                strip.style.transition = 'transform 0.18s ease-out';
-                strip.style.transform = `translate3d(${-mobCurSlide * mobSlideW}px,0,0)`;
-            }
-            mobShowNextChapterPopup(idx);
-            return;
-        }
-    }
-
-    mobCancelNextChapterPopup();
     resetMusicButtons();
     mobCurSlide = idx;
 
@@ -1310,13 +1294,9 @@ function mobGoToSlide(idx, animate = true, force = false) {
     mobUpdateUI(slide);
     if (slide.chapterIdx >= 0) saveBookmark(idx, 0);
 
-    // 모바일은 스크롤 트리거가 없으므로 해당 페이지 안에 [music]/[autoplay]가 있으면 자동 재생을 시도한다.
-    // .click() 대신 직접 호출하므로 두 장 슬라이드/탭 토글과 충돌하지 않는다.
-    setTimeout(() => {
-        mobTryAutoPlayMusicOnPage();
-    }, 260);
+    // 자동 음악 재생용 강제 .click()은 모바일에서 swipe 종료와 겹쳐 두 장 넘어감/토글 오작동을 만들 수 있어 비활성화.
+    // 음악은 독자가 직접 music-link를 눌러 재생한다.
 }
-
 
 function mobUpdateUI(slide) {
     const ci = slide.chapterIdx;
@@ -1431,15 +1411,28 @@ function mobTocOpen() { document.getElementById('mob-toc-sheet').classList.add('
 function mobTocClose() { document.getElementById('mob-toc-sheet').classList.remove('open'); }
 
 function mobSetFont(val) {
+    const oldSlide = mobSlides[mobCurSlide];
+    const oldCi = oldSlide ? oldSlide.chapterIdx : -1;
+    const oldRatio = oldSlide && oldSlide.totalInChapter > 1
+        ? oldSlide.pageInChapter / (oldSlide.totalInChapter - 1)
+        : 0;
+
     mobFontSize = parseInt(val);
     document.getElementById('mob-font-val').textContent = mobFontSize;
-    document.querySelectorAll('.mob-slide-text').forEach(el => el.style.fontSize = mobFontSize + 'px');
-    // 폰트 바뀌면 페이지 재분할
-    const curCi = mobSlides[mobCurSlide] ? mobSlides[mobCurSlide].chapterIdx : -1;
+    applyMobilePageMetrics();
+
+    // 폰트가 바뀌면 실제 렌더링 높이 기준으로 전체 페이지를 다시 나눈다.
     mobBuildReader();
-    // 같은 챕터 첫 페이지로
-    if (curCi >= 0 && mobChapMap[curCi] !== undefined) mobGoToSlide(mobChapMap[curCi], false);
-    else mobGoToSlide(0, false);
+
+    if (oldCi >= 0 && mobChapMap[oldCi] !== undefined) {
+        const start = mobChapMap[oldCi];
+        const first = mobSlides[start];
+        const total = first ? first.totalInChapter : 1;
+        const target = start + Math.min(total - 1, Math.max(0, Math.round(oldRatio * Math.max(0, total - 1))));
+        mobGoToSlide(target, false);
+    } else {
+        mobGoToSlide(0, false);
+    }
 }
 
 function mobRestoreBookmark() {
@@ -1956,3 +1949,66 @@ function togglePlayMusic(url,btn){
 }
 function extractVideoId(url){const m=url.match(/^.*(youtu.be\/|v\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/);return m&&m[2].length===11?m[2]:null;}
 function extractSunoId(url){const m=url.match(/suno\.com\/(?:song|input|s)\/([a-zA-Z0-9\-]+)/i);return m?m[1]:null;}
+
+
+const NEXT_CHAPTER_DELAY_SEC = 3;
+let mobNextChapterCountdown = null;
+let mobNextChapterRemain = NEXT_CHAPTER_DELAY_SEC;
+
+function mobIsLastPageOfChapter(idx) {
+    const curSlide = mobPages[idx];
+    const nextSlide = mobPages[idx + 1];
+    if (!curSlide || curSlide.chapterIdx < 0) return false;
+    if (!nextSlide) return false;
+    return nextSlide.chapterIdx !== curSlide.chapterIdx;
+}
+
+function mobCancelNextChapterPopup() {
+    if (mobNextChapterCountdown) {
+        clearInterval(mobNextChapterCountdown);
+        mobNextChapterCountdown = null;
+    }
+    const popup = document.getElementById('mob-next-chapter-popup');
+    if (popup) popup.classList.remove('show');
+}
+
+function mobShowNextChapterPopup(targetIdx) {
+    mobCancelNextChapterPopup();
+
+    mobNextChapterRemain = NEXT_CHAPTER_DELAY_SEC;
+
+    let popup = document.getElementById('mob-next-chapter-popup');
+
+    if (!popup) {
+        popup = document.createElement('div');
+        popup.id = 'mob-next-chapter-popup';
+
+        popup.innerHTML = `
+            <div class="mob-next-chapter-card">
+                <div class="mob-next-chapter-title">해당 회차의 마지막 페이지입니다</div>
+                <div class="mob-next-chapter-desc">
+                    <span id="mob-next-chapter-count">3</span>초 후 다음 회차로 이동합니다.
+                </div>
+                <button class="mob-next-chapter-cancel" onclick="mobCancelNextChapterPopup()">취소</button>
+            </div>
+        `;
+
+        document.body.appendChild(popup);
+    }
+
+    popup.classList.add('show');
+
+    const countEl = document.getElementById('mob-next-chapter-count');
+    if (countEl) countEl.textContent = mobNextChapterRemain;
+
+    mobNextChapterCountdown = setInterval(() => {
+        mobNextChapterRemain -= 1;
+
+        if (countEl) countEl.textContent = mobNextChapterRemain;
+
+        if (mobNextChapterRemain <= 0) {
+            mobCancelNextChapterPopup();
+            mobGoToSlide(targetIdx, true);
+        }
+    }, 1000);
+}
