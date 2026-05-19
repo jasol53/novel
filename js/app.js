@@ -50,32 +50,31 @@ let preMutedVolume = 15;
 /* ════════════════════════════════════════════
    INIT
    ════════════════════════════════════════════ */
-window.onload = async function() {
-    await loadConfigAndInitialize();
-
+window.onload = function() {
+    loadConfigAndInitialize();
     initDragAndDrop();
-
     const urlParams = new URLSearchParams(window.location.search);
     const cloudBookId = urlParams.get('id');
-
     if (cloudBookId) {
         bookmarkState.activeBookId = cloudBookId;
-
-        if (isFirebaseConnected && db) {
-            loadBookFromCloud(cloudBookId);
-        } else {
-            setBadge('err', '연결 실패: Firebase 초기화 실패');
-        }
+        firebase.auth().onAuthStateChanged(user => {
+            if (user) {
+                db = firebase.firestore();
+                isFirebaseConnected = true;
+                setBadge('ok', '뉴토끼남 클라우드 연동');
+                loadBookFromCloud(cloudBookId);
+            }
+        });
     } else {
         loadLocalBookState();
         renderChapters();
         switchViewMode('author');
     }
-
     window.addEventListener('resize', () => {
         if (bookState.viewMode === 'reader') updateDynamicCoverOnResize();
     });
 };
+
 /* ════════════════════════════════════════════
    FIREBASE
    ════════════════════════════════════════════ */
@@ -540,18 +539,24 @@ function getMobCharsPerPage() {
     const vh = Math.max(480, (window.visualViewport ? window.visualViewport.height : window.innerHeight) || 640);
     const fs = mobFontSize || 17;
 
-    // Safari 주소창/하단바 + 앱 하단 조작 UI가 본문을 가리지 않도록
-    // fixed2의 슬라이드 로직은 유지하고, 페이지당 글자 수만 더 보수적으로 잡는다.
-    const reservedTop = 72;
-    const reservedBottom = 188;
-    const usableH = Math.max(230, vh - reservedTop - reservedBottom);
-    const usableW = Math.max(230, vw - 56);
+    // 본문 상단은 한 줄 정도 더 올리고, 하단은 Safari 하단바/앱 조작 UI에
+    // 가리지 않도록 더 넉넉하게 비운다. 폰트가 커질수록 페이지당 글자 수를
+    // 강하게 줄여야 실제 렌더링에서 아래 줄이 잘리지 않는다.
+    const reservedTop = 46;
+    const reservedBottom = 226 + Math.max(0, fs - 17) * 18;
+    const usableH = Math.max(190, vh - reservedTop - reservedBottom);
+    const usableW = Math.max(220, vw - 56);
 
-    const lineH = fs * 2.08;
-    const lines = Math.max(6, Math.floor(usableH / lineH));
-    const charsPerLine = Math.max(10, Math.floor(usableW / (fs * 1.02)));
+    const lineH = fs * 1.96;
+    const lines = Math.max(4, Math.floor(usableH / lineH));
+    const charsPerLine = Math.max(8, Math.floor(usableW / (fs * 1.03)));
 
-    return Math.max(120, Math.min(260, Math.floor(lines * charsPerLine * 0.68)));
+    let density = 0.60;
+    if (fs >= 18) density = 0.54;
+    if (fs >= 20) density = 0.48;
+    if (fs >= 22) density = 0.42;
+
+    return Math.max(70, Math.min(240, Math.floor(lines * charsPerLine * density)));
 }
 
 // 특수 블록 마커 (분할 시 통째로 유지)
@@ -1286,15 +1291,28 @@ function mobTocOpen() { document.getElementById('mob-toc-sheet').classList.add('
 function mobTocClose() { document.getElementById('mob-toc-sheet').classList.remove('open'); }
 
 function mobSetFont(val) {
-    mobFontSize = parseInt(val);
+    mobFontSize = parseInt(val, 10) || 17;
     document.getElementById('mob-font-val').textContent = mobFontSize;
-    document.querySelectorAll('.mob-slide-text').forEach(el => el.style.fontSize = mobFontSize + 'px');
-    // 폰트 바뀌면 페이지 재분할
-    const curCi = mobSlides[mobCurSlide] ? mobSlides[mobCurSlide].chapterIdx : -1;
+
+    // 폰트가 바뀌면 기존 페이지 분량 계산 자체가 달라져야 하므로
+    // 단순히 CSS만 키우지 말고 슬라이드를 다시 분할한다.
+    const curSlide = mobSlides[mobCurSlide];
+    const curCi = curSlide ? curSlide.chapterIdx : -1;
+    const oldRatio = curSlide && curSlide.totalInChapter > 1
+        ? curSlide.pageInChapter / (curSlide.totalInChapter - 1)
+        : 0;
+
     mobBuildReader();
-    // 같은 챕터 첫 페이지로
-    if (curCi >= 0 && mobChapMap[curCi] !== undefined) mobGoToSlide(mobChapMap[curCi], false);
-    else mobGoToSlide(0, false);
+
+    if (curCi >= 0 && mobChapMap[curCi] !== undefined) {
+        const start = mobChapMap[curCi];
+        const first = mobSlides[start];
+        const total = first ? first.totalInChapter : 1;
+        const offset = Math.round(oldRatio * Math.max(0, total - 1));
+        mobGoToSlide(Math.min(start + offset, mobSlides.length - 1), false);
+    } else {
+        mobGoToSlide(0, false);
+    }
 }
 
 function mobRestoreBookmark() {
