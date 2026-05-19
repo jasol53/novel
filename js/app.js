@@ -998,6 +998,13 @@ let mobTouchStartY = 0;
 let mobTouchDragging = false;
 let mobTouchScrolling = false;
 
+
+function extractMusicUrlFromRawContent(raw) {
+    if (!raw) return '';
+    const match = raw.match(/\[(?:music|autoplay)=(.*?)\][\s\S]*?\[\/(?:music|autoplay)\]/);
+    return match ? match[1].trim().replace(/&quot;/g, '"') : '';
+}
+
 function mobBuildReader() {
     let strip = document.getElementById('mob-strip');
     if (!strip) { console.error('mob-strip not found'); return; }
@@ -1051,6 +1058,7 @@ function mobBuildReader() {
         subPages.forEach((pageContent, pi) => {
             const isLast = pi === total - 1;
             const hasMusicBlock = /\[(music|autoplay)=/.test(pageContent);
+            const musicUrl = extractMusicUrlFromRawContent(pageContent);
             const htmlContent = mobFormatProse(pageContent, pi === 0);
 
             const slide = document.createElement('div');
@@ -1060,7 +1068,7 @@ function mobBuildReader() {
 
             slide.innerHTML = `<div class="mob-slide-text" style="font-size:${mobFontSize}px;">${htmlContent}${isLast ? '<div class="chapter-end-marker" style="font-size:0.8em;margin-top:1.5em!important;">— 제'+(ci+1)+'화 끝 —</div>' : ''}</div>`;
             strip.appendChild(slide);
-            mobSlides.push({ type: 'chapter', chapterIdx: ci, pageInChapter: pi, totalInChapter: total, hasMusicBlock, chapterTitle: ch.title });
+            mobSlides.push({ type: 'chapter', chapterIdx: ci, pageInChapter: pi, totalInChapter: total, hasMusicBlock, musicUrl, chapterTitle: ch.title });
         });
     });
 
@@ -1136,7 +1144,7 @@ function getMusicIdFromUrl(url) {
 
 function mobFindMusicLinkInCurrentChapter() {
     const curSlide = mobSlides[mobCurSlide];
-    if (!curSlide) return null;
+    if (!curSlide || curSlide.chapterIdx < 0) return null;
 
     // 현재 페이지 우선
     const curEl = mobGetCurrentSlideEl();
@@ -1146,8 +1154,6 @@ function mobFindMusicLinkInCurrentChapter() {
     }
 
     // 현재 화 전체에서 첫 music 링크 탐색
-    if (curSlide.chapterIdx < 0) return null;
-
     for (let i = 0; i < mobSlides.length; i++) {
         const slide = mobSlides[i];
         if (!slide || slide.chapterIdx !== curSlide.chapterIdx) continue;
@@ -1165,25 +1171,24 @@ function mobFindMusicLinkInCurrentChapter() {
 function mobTryAutoPlayMusicOnPage() {
     if (!IS_MOBILE) return;
 
-    const slideEl = mobGetCurrentSlideEl();
-    if (!slideEl) return;
+    const slide = mobSlides[mobCurSlide];
+    if (!slide || !slide.musicUrl) return;
 
-    // 자동재생은 현재 페이지에 실제 [music]/[autoplay] 코드가 있을 때만.
-    const link = slideEl.querySelector('.music-link');
-    if (!link) return;
-
-    const url = getMusicUrlFromLink(link);
-    if (!url) return;
-
-    const musicId = getMusicIdFromUrl(url);
+    const link = mobGetCurrentSlideEl() ? mobGetCurrentSlideEl().querySelector('.music-link') : null;
+    const musicId = getMusicIdFromUrl(slide.musicUrl);
 
     if (currentPlayingMusicId && String(currentPlayingMusicId) === String(musicId)) {
-        currentPlayingBtn = link;
-        link.classList.add('playing');
+        if (link) {
+            currentPlayingBtn = link;
+            link.classList.add('playing');
+        }
+        updateMasterPlayPauseIcon(true);
         return;
     }
 
-    togglePlayMusic(url, link);
+    if (link) {
+        togglePlayMusic(slide.musicUrl, link);
+    }
 }
 
 function mobQueueAutoPlayMusic() {
@@ -1191,12 +1196,12 @@ function mobQueueAutoPlayMusic() {
 
     setTimeout(() => {
         if (Date.now() < mobSuppressClickUntil) {
-            setTimeout(mobTryAutoPlayMusicOnPage, 260);
+            setTimeout(mobTryAutoPlayMusicOnPage, 220);
             return;
         }
 
         mobTryAutoPlayMusicOnPage();
-    }, 260);
+    }, 120);
 }
 
 function mobSetupEvents() {
@@ -1984,7 +1989,7 @@ function onYouTubeIframeAPIReady(){
 function onPlayerStateChange(e){if(e.data===YT.PlayerState.ENDED)resetMusicButtons();}
 
 function resetMusicButtons(){
-    document.querySelectorAll('.music-link').forEach(btn=>{btn.classList.remove('playing');const i=btn.querySelector('.fa-compact-disc');if(i)i.classList.remove('fa-spin');});
+    document.querySelectorAll('.music-link').forEach(btn=>{if(btn)btn.classList.remove('playing');const i=btn.querySelector('.fa-compact-disc');if(i)i.classList.remove('fa-spin');});
     if(sunoAudioObject){sunoAudioObject.pause();sunoAudioObject=null;}
     currentPlayingMusicId=null;currentPlayingBtn=null;currentPlayingType=null;
     updateMasterPlayPauseIcon(false);
@@ -2057,13 +2062,13 @@ function togglePlayMusic(url,btn){
     if(!vid&&!sid){showToast('지원하지 않는 링크입니다.','error');return;}
     const isSuno=!!sid,tid=isSuno?sid:vid;
     if(currentPlayingMusicId===tid){
-        if(isSuno&&sunoAudioObject){if(sunoAudioObject.paused){sunoAudioObject.play();btn.classList.add('playing');updateMasterPlayPauseIcon(true);}else{sunoAudioObject.pause();btn.classList.remove('playing');updateMasterPlayPauseIcon(false);}}
-        else if(ytAudioPlayer){const s=ytAudioPlayer.getPlayerState();if(s===YT.PlayerState.PLAYING){ytAudioPlayer.pauseVideo();btn.classList.remove('playing');updateMasterPlayPauseIcon(false);}else{ytAudioPlayer.playVideo();btn.classList.add('playing');updateMasterPlayPauseIcon(true);}}
+        if(isSuno&&sunoAudioObject){if(sunoAudioObject.paused){sunoAudioObject.play();if(btn)btn.classList.add('playing');updateMasterPlayPauseIcon(true);}else{sunoAudioObject.pause();if(btn)btn.classList.remove('playing');updateMasterPlayPauseIcon(false);}}
+        else if(ytAudioPlayer){const s=ytAudioPlayer.getPlayerState();if(s===YT.PlayerState.PLAYING){ytAudioPlayer.pauseVideo();if(btn)btn.classList.remove('playing');updateMasterPlayPauseIcon(false);}else{ytAudioPlayer.playVideo();if(btn)btn.classList.add('playing');updateMasterPlayPauseIcon(true);}}
         return;
     }
     resetMusicButtons();
     currentPlayingMusicId=tid;currentPlayingBtn=btn;currentPlayingType=isSuno?'suno':'youtube';
-    btn.classList.add('playing');const di=btn.querySelector('.fa-compact-disc');if(di)di.classList.add('fa-spin');updateMasterPlayPauseIcon(true);
+    if(btn)btn.classList.add('playing');const di=btn?btn.querySelector('.fa-compact-disc'):null;if(di)di.classList.add('fa-spin');updateMasterPlayPauseIcon(true);
     if(isSuno){
         const isUUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sid);
         if(!isUUID){
@@ -2090,13 +2095,9 @@ let mobNextChapterCountdown = null;
 let mobNextChapterRemain = NEXT_CHAPTER_DELAY_SEC;
 
 function mobIsLastPageOfChapter(idx) {
-    const curSlide = mobSlides[idx];
-    const nextSlide = mobSlides[idx + 1];
-
-    if (!curSlide || curSlide.chapterIdx < 0) return false;
-    if (!nextSlide) return false;
-
-    return nextSlide.chapterIdx !== curSlide.chapterIdx;
+    const slide = mobSlides[idx];
+    if (!slide || slide.chapterIdx < 0) return false;
+    return slide.pageInChapter === slide.totalInChapter - 1 && slide.chapterIdx < bookState.chapters.length - 1;
 }
 
 function mobCancelNextChapterPopup() {
