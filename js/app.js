@@ -508,18 +508,17 @@ function getMobCharsPerPage() {
     const vh = Math.max(480, (window.visualViewport ? window.visualViewport.height : window.innerHeight) || 640);
     const fs = mobFontSize || 17;
 
-    // Safari 주소창/하단바 + 앱 상하단 UI가 떠도 본문이 가려지지 않게
-    // 실제보다 훨씬 보수적으로 한 페이지 글자 수를 잡는다.
-    const reservedTop = 104;
-    const reservedBottom = 196;
-    const usableH = Math.max(220, vh - reservedTop - reservedBottom);
+    // Safari 주소창/하단바 + 앱 하단 조작 UI가 본문을 가리지 않도록
+    // fixed2의 슬라이드 로직은 유지하고, 페이지당 글자 수만 더 보수적으로 잡는다.
+    const reservedTop = 72;
+    const reservedBottom = 188;
+    const usableH = Math.max(230, vh - reservedTop - reservedBottom);
     const usableW = Math.max(230, vw - 56);
 
     const lineH = fs * 2.08;
     const lines = Math.max(6, Math.floor(usableH / lineH));
     const charsPerLine = Math.max(10, Math.floor(usableW / (fs * 1.02)));
 
-    // 한글 문장부호/빈 줄/특수 블록 margin 때문에 실제보다 30% 정도 적게 싣는다.
     return Math.max(120, Math.min(260, Math.floor(lines * charsPerLine * 0.68)));
 }
 
@@ -1254,23 +1253,11 @@ function mobRestoreBookmark() {
     if (!saved) return;
     try {
         const p = JSON.parse(saved);
-        let target = -1;
-        let ci = typeof p.chapterIdx === 'number' ? p.chapterIdx : -1;
-
-        if (typeof p.mobSlideIdx === 'number' && p.mobSlideIdx > 0 && p.mobSlideIdx < mobSlides.length) {
-            target = p.mobSlideIdx;
-            ci = mobSlides[target] ? mobSlides[target].chapterIdx : ci;
-        } else if (ci >= 0 && ci < bookState.chapters.length && mobChapMap[ci] !== undefined) {
-            const offset = Math.max(0, parseInt(p.pageInChapter || 0, 10));
-            target = Math.min(mobSlides.length - 1, mobChapMap[ci] + offset);
-        }
-
-        if (target > 0 && ci >= 0 && ci < bookState.chapters.length) {
+        const ci = p.chapterIdx !== undefined ? p.chapterIdx : (p.pageIdx > 0 ? p.pageIdx - 1 : -1);
+        if (ci >= 0 && ci < bookState.chapters.length && mobChapMap[ci] !== undefined) {
             const infoEl = document.getElementById('bookmark-info-text');
-            const pageTxt = mobSlides[target] ? ` ${mobSlides[target].pageInChapter + 1}/${mobSlides[target].totalInChapter}p` : '';
-            if (infoEl) infoEl.innerHTML = `이전에 감상하시던 <strong>${ci+1}화 — ${bookState.chapters[ci].title}${pageTxt}</strong>가 있습니다. 이어서 읽으시겠습니까?`;
-            bookmarkState.savedPageIndex = target;
-            bookmarkState.savedParagraphIndex = p.paraIdx || 0;
+            if (infoEl) infoEl.innerHTML = `이전에 감상하시던 <strong>${ci+1}화 — ${bookState.chapters[ci].title}</strong>가 있습니다. 이어서 읽으시겠습니까?`;
+            bookmarkState.savedPageIndex = mobChapMap[ci];
             const modal = document.getElementById('modal-bookmark');
             if (modal) modal.classList.remove('hidden');
         }
@@ -1558,20 +1545,13 @@ function handleReaderScroll(pageIdx, sc) {
 }
 
 function saveBookmark(pageIdx,paraIdx){
-    bookmarkState.savedPageIndex=pageIdx;
-    bookmarkState.savedParagraphIndex=paraIdx;
+    bookmarkState.savedPageIndex=pageIdx;bookmarkState.savedParagraphIndex=paraIdx;
     try{
-        let payload = {pageIdx, paraIdx, savedAt:Date.now()};
-        if(IS_MOBILE && Array.isArray(mobSlides) && mobSlides[pageIdx]){
-            const ms = mobSlides[pageIdx];
-            payload.mobSlideIdx = pageIdx;
-            payload.chapterIdx = ms.chapterIdx;
-            payload.pageInChapter = ms.pageInChapter || 0;
-            payload.totalInChapter = ms.totalInChapter || 1;
-        } else if(!IS_MOBILE) {
-            payload.chapterIdx = pageIdx > 0 ? pageIdx - 1 : -1;
+        let extra = {};
+        if(IS_MOBILE && mobPages[pageIdx]){
+            extra.chapterIdx = mobPages[pageIdx].chapterIdx;
         }
-        localStorage.setItem(`newtokkinam_bookmark_${bookmarkState.activeBookId}`,JSON.stringify(payload));
+        localStorage.setItem(`newtokkinam_bookmark_${bookmarkState.activeBookId}`,JSON.stringify({pageIdx,paraIdx,...extra,savedAt:Date.now()}));
     }catch(e){}
 }
 
@@ -1581,18 +1561,10 @@ function checkAndTriggerBookmark(){
         try{
             const p=JSON.parse(saved);
             if(IS_MOBILE){
-                let target = -1;
-                let ci = typeof p.chapterIdx === 'number' ? p.chapterIdx : -1;
-                if(typeof p.mobSlideIdx === 'number' && p.mobSlideIdx > 0 && p.mobSlideIdx < mobSlides.length){
-                    target = p.mobSlideIdx;
-                    ci = mobSlides[target] ? mobSlides[target].chapterIdx : ci;
-                } else if(ci >= 0 && ci < bookState.chapters.length && mobChapMap[ci] !== undefined){
-                    target = mobChapMap[ci] + Math.max(0, parseInt(p.pageInChapter || 0, 10));
-                    target = Math.min(mobSlides.length - 1, target);
-                }
-                if(target > 0 && ci >= 0 && ci < bookState.chapters.length){
-                    bookmarkState.savedPageIndex = target;
-                    bookmarkState.savedParagraphIndex = p.paraIdx || 0;
+                // 모바일: chapterIdx 기반 복원
+                const ci = p.chapterIdx !== undefined ? p.chapterIdx : (p.pageIdx > 0 ? p.pageIdx - 1 : -1);
+                if(ci >= 0 && ci < bookState.chapters.length){
+                    bookmarkState.savedPageIndex = mobChapterMap[ci] || 0;
                     const info=document.getElementById('bookmark-info-text');
                     if(info)info.innerHTML=`이전에 감상하시던 <strong>${ci+1}화 — ${bookState.chapters[ci].title}</strong>가 있습니다. 이어서 읽으시겠습니까?`;
                     document.getElementById('modal-bookmark').classList.remove('hidden');
@@ -1609,7 +1581,7 @@ function checkAndTriggerBookmark(){
             }
         }catch(e){}
     }
-    IS_MOBILE?mobGoToSlide(0,false):pcCommit(0);
+    IS_MOBILE?mobCommit(0):pcCommit(0);
 }
 
 function closeBookmarkModal(restore){
@@ -1672,53 +1644,34 @@ async function saveToCloud(){
 }
 
 async function loadBookFromCloud(id){
-    const applyCloudBookData = (data, fromCache=false) => {
-        bookState.title = data.title || '제목 없음';
-        bookState.author = data.author || '작가 미상';
-        bookState.description = data.description || '';
-        bookState.coverUrlWebnovel = data.coverUrlWebnovel || '';
-        bookState.coverUrlTablet = data.coverUrlTablet || '';
-        bookState.coverUrlStandard = data.coverUrlStandard || '';
-        bookState.chapters = data.chapters || [];
-        // 독자 URL로 들어온 경우에도 캐시만 남긴다. 저장용 cloud_id와 섞이지 않게 한다.
-        try { localStorage.setItem(`newtokkinam_cached_book_${id}`, JSON.stringify({...data, cachedAt:Date.now()})); } catch(e) {}
-        const titleEl = document.getElementById('sb-book-title-el');
-        const authorEl = document.getElementById('sb-book-author-el');
-        if(titleEl) titleEl.textContent = bookState.title;
-        if(authorEl) authorEl.textContent = bookState.author + ' 지음';
-        const il = document.getElementById('init-loader');
-        if (il) il.remove();
-        const cl = document.getElementById('cloud-loader');
-        if (cl) cl.remove();
-        renderChapters();
-        switchViewMode('reader');
-        showToast(fromCache ? `캐시된 "${bookState.title}" 로드 완료.` : `"${bookState.title}" 로드 완료.`);
-    };
-
-    const loadCached = () => {
-        try {
-            const cached = localStorage.getItem(`newtokkinam_cached_book_${id}`);
-            if(!cached) return false;
-            applyCloudBookData(JSON.parse(cached), true);
-            return true;
-        } catch(e) { return false; }
-    };
-
-    if(!isFirebaseConnected){
-        if(loadCached()) return;
-        showToast('클라우드 연결 실패. 새로고침 해주세요.','error');
-        return;
-    }
+    if(!isFirebaseConnected){ showToast('클라우드 연결 실패. 새로고침 해주세요.','error'); return; }
     try{
         const doc=await db.collection('novels').doc(id).get();
         if(doc.exists){
-            applyCloudBookData(doc.data(), false);
-        }else{
-            if(!loadCached()) showToast('존재하지 않는 소설입니다.','error');
-        }
-    }catch(e){
-        if(!loadCached()) showToast('로드 실패: '+e.message,'error');
-    }
+            const data = doc.data();
+            bookState.title = data.title || '제목 없음';
+            bookState.author = data.author || '작가 미상';
+            bookState.description = data.description || '';
+            bookState.coverUrlWebnovel = data.coverUrlWebnovel || '';
+            bookState.coverUrlTablet = data.coverUrlTablet || '';
+            bookState.coverUrlStandard = data.coverUrlStandard || '';
+            bookState.chapters = data.chapters || [];
+            localStorage.setItem('newtokkinam_cloud_id', id);
+            // 사이드바만 업데이트 (updateBookInfo 호출 금지 — input 값으로 덮어씌움)
+            const titleEl = document.getElementById('sb-book-title-el');
+            const authorEl = document.getElementById('sb-book-author-el');
+            if(titleEl) titleEl.textContent = bookState.title;
+            if(authorEl) authorEl.textContent = bookState.author + ' 지음';
+            const il = document.getElementById('init-loader');
+            if (il) il.remove();
+            const cl = document.getElementById('cloud-loader');
+            if (cl) cl.remove();
+            renderChapters();
+            switchViewMode('reader');
+            switchViewMode('reader');
+            showToast(`"${bookState.title}" 로드 완료.`);
+        }else{showToast('존재하지 않는 소설입니다.','error');}
+    }catch(e){showToast('로드 실패: '+e.message,'error');}
 }
 
 /* ════════════════════════════════════════════
