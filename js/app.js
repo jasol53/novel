@@ -1113,8 +1113,14 @@ function mobGetCurrentSlideEl() {
     return slides[mobCurSlide] || null;
 }
 
+function mobGetSlideElAt(idx) {
+    const slides = document.querySelectorAll('.mob-slide');
+    return slides[idx] || null;
+}
+
 function getMusicUrlFromLink(link) {
     if (!link) return '';
+
     const dataUrl = link.getAttribute('data-music-url');
     if (dataUrl) return dataUrl;
 
@@ -1128,12 +1134,41 @@ function getMusicIdFromUrl(url) {
     return extractSunoId(url) || extractVideoId(url) || url;
 }
 
+function mobFindMusicLinkInCurrentChapter() {
+    const curSlide = mobSlides[mobCurSlide];
+    if (!curSlide) return null;
+
+    // 현재 페이지 우선
+    const curEl = mobGetCurrentSlideEl();
+    if (curEl) {
+        const currentLink = curEl.querySelector('.music-link');
+        if (currentLink) return currentLink;
+    }
+
+    // 현재 화 전체에서 첫 music 링크 탐색
+    if (curSlide.chapterIdx < 0) return null;
+
+    for (let i = 0; i < mobSlides.length; i++) {
+        const slide = mobSlides[i];
+        if (!slide || slide.chapterIdx !== curSlide.chapterIdx) continue;
+
+        const el = mobGetSlideElAt(i);
+        if (!el) continue;
+
+        const link = el.querySelector('.music-link');
+        if (link) return link;
+    }
+
+    return null;
+}
+
 function mobTryAutoPlayMusicOnPage() {
     if (!IS_MOBILE) return;
 
     const slideEl = mobGetCurrentSlideEl();
     if (!slideEl) return;
 
+    // 자동재생은 현재 페이지에 실제 [music]/[autoplay] 코드가 있을 때만.
     const link = slideEl.querySelector('.music-link');
     if (!link) return;
 
@@ -1246,7 +1281,7 @@ function mobSetupEvents() {
             // 회차 마지막 페이지에서 다음 화 방향으로 밀 때는
             // 다음 페이지가 보이지 않도록 둔탁한 벽에 막히는 느낌만 준다.
             if (dx < 0 && mobIsLastPageOfChapter(mobCurSlide)) {
-                limitedDx = Math.max(-mobSlideW * 0.12, dx * 0.18);
+                limitedDx = Math.max(-mobSlideW * 0.10, dx * 0.16);
             }
 
             strip.style.transform = `translate3d(${-mobCurSlide * mobSlideW + limitedDx}px,0,0)`;
@@ -1303,6 +1338,16 @@ function mobSetupEvents() {
             targetIdx = mobCurSlide + 1;
         } else if ((dx > threshold || (fastSwipe && vx > 0)) && mobCurSlide > 0) {
             targetIdx = mobCurSlide - 1;
+        }
+
+        if (
+            targetIdx !== mobCurSlide &&
+            targetIdx > mobCurSlide &&
+            mobIsLastPageOfChapter(mobCurSlide)
+        ) {
+            snapToCurrent(true);
+            mobShowNextChapterPopup(targetIdx);
+            return;
         }
 
         mobGoToSlide(targetIdx, true);
@@ -1364,7 +1409,7 @@ function mobGoToSlide(idx, animate = true) {
     mobUpdateUI(slide);
     if (slide.chapterIdx >= 0) saveBookmark(idx, 0);
 
-    if (typeof mobQueueAutoPlayMusic === 'function') mobQueueAutoPlayMusic();
+    mobQueueAutoPlayMusic();
 }
 
 function mobUpdateUI(slide) {
@@ -1977,8 +2022,7 @@ function toggleMasterPlayPause(){
         let ml = null;
 
         if (IS_MOBILE) {
-            const slideEl = mobGetCurrentSlideEl();
-            if (slideEl) ml = slideEl.querySelector('.music-link');
+            ml = mobFindMusicLinkInCurrentChapter();
 
             if (ml) {
                 const url = getMusicUrlFromLink(ml);
@@ -1996,7 +2040,7 @@ function toggleMasterPlayPause(){
             }
         }
 
-        showToast('현재 페이지에 음악이 없습니다.','info');
+        showToast('현재 화에 음악이 없습니다.','info');
         return;
     }
     if(currentPlayingType==='suno'&&sunoAudioObject){
@@ -2046,10 +2090,12 @@ let mobNextChapterCountdown = null;
 let mobNextChapterRemain = NEXT_CHAPTER_DELAY_SEC;
 
 function mobIsLastPageOfChapter(idx) {
-    const curSlide = mobPages[idx];
-    const nextSlide = mobPages[idx + 1];
+    const curSlide = mobSlides[idx];
+    const nextSlide = mobSlides[idx + 1];
+
     if (!curSlide || curSlide.chapterIdx < 0) return false;
     if (!nextSlide) return false;
+
     return nextSlide.chapterIdx !== curSlide.chapterIdx;
 }
 
