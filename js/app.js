@@ -1226,9 +1226,11 @@ function mobPlayMusicUrl(url) {
     if (!url) return false;
 
     const musicId = getMusicIdFromUrl(url);
+    console.log('[mobPlayMusicUrl] url:', url, 'musicId:', musicId, 'currentPlayingMusicId:', currentPlayingMusicId);
 
     // 이미 같은 곡 재생 중이면 스킵
     if (currentPlayingMusicId && String(currentPlayingMusicId) === String(musicId)) {
+        console.log('[mobPlayMusicUrl] 같은 곡 — 스킵');
         updateMasterPlayPauseIcon(true);
         return true;
     }
@@ -1297,7 +1299,7 @@ function mobTryAutoPlayMusicOnPage() {
     if (!IS_MOBILE) return;
     const slide = mobSlides[mobCurSlide];
     if (!slide) return;
-    // musicUrl이 있으면 재생, 없어도 hasMusicBlock이면 DOM에서 직접 찾기
+    console.log('[autoplay] slide:', mobCurSlide, 'musicUrl:', slide.musicUrl, 'hasMusicBlock:', slide.hasMusicBlock, 'currentPlayingMusicId:', currentPlayingMusicId);
     const url = slide.musicUrl;
     if (url) {
         mobPlayMusicUrl(url);
@@ -1495,6 +1497,13 @@ function mobSetupEvents() {
         }
 
         mobGoToSlide(targetIdx, true);
+        // pointerup = 사용자 제스처 → 사파리 자동재생 정책 통과
+        if (targetIdx !== mobCurSlide) {
+            const nextSlide = mobSlides[targetIdx];
+            if (nextSlide && nextSlide.musicUrl) {
+                mobPlayMusicUrl(nextSlide.musicUrl);
+            }
+        }
     }, { passive: true });
 
     strip.addEventListener('pointercancel', e => {
@@ -1576,8 +1585,7 @@ function mobGoToSlide(idx, animate = true) {
     const slide = mobSlides[idx];
     mobUpdateUI(slide);
     if (slide.chapterIdx >= 0) saveBookmark(idx, 0);
-
-    mobQueueAutoPlayMusic();
+    // 음악 재생은 pointerup(사용자 제스처)에서 처리
 }
 
 function mobUpdateUI(slide) {
@@ -1653,7 +1661,11 @@ function mobPrevChapter() {
     const ci = mobSlides[mobCurSlide].chapterIdx;
     if (ci <= 0) { mobGoToSlide(0); return; }
     const target = mobChapMap[ci - 1];
-    if (target !== undefined) mobGoToSlide(target);
+    if (target !== undefined) {
+        mobGoToSlide(target);
+        const s = mobSlides[target];
+        if (s && s.musicUrl) mobPlayMusicUrl(s.musicUrl);
+    }
 }
 
 function mobNextChapter() {
@@ -1661,7 +1673,11 @@ function mobNextChapter() {
     const next = ci + 1;
     if (next < bookState.chapters.length) {
         const target = mobChapMap[next];
-        if (target !== undefined) mobGoToSlide(target);
+        if (target !== undefined) {
+            mobGoToSlide(target);
+            const s = mobSlides[target];
+            if (s && s.musicUrl) mobPlayMusicUrl(s.musicUrl);
+        }
     }
 }
 
