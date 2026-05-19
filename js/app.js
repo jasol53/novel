@@ -50,26 +50,26 @@ let preMutedVolume = 15;
 /* ════════════════════════════════════════════
    INIT
    ════════════════════════════════════════════ */
-window.onload = function() {
-    loadConfigAndInitialize();
+window.onload = async function() {
+    await loadConfigAndInitialize();
     initDragAndDrop();
+
     const urlParams = new URLSearchParams(window.location.search);
     const cloudBookId = urlParams.get('id');
+
     if (cloudBookId) {
         bookmarkState.activeBookId = cloudBookId;
-        firebase.auth().onAuthStateChanged(user => {
-            if (user) {
-                db = firebase.firestore();
-                isFirebaseConnected = true;
-                setBadge('ok', '뉴토끼남 클라우드 연동');
-                loadBookFromCloud(cloudBookId);
-            }
-        });
+        if (isFirebaseConnected && db) {
+            loadBookFromCloud(cloudBookId);
+        } else {
+            setBadge('err', '연결 실패: Firebase 초기화 실패');
+        }
     } else {
         loadLocalBookState();
         renderChapters();
         switchViewMode('author');
     }
+
     window.addEventListener('resize', () => {
         if (bookState.viewMode === 'reader') updateDynamicCoverOnResize();
     });
@@ -535,39 +535,93 @@ function goHome() { if (isAuthorUnlocked) switchViewMode('author'); }
    ════════════════════════════════════════════ */
 // 모바일 페이지 분량은 기기 높이/폰트 크기/하단 UI 안전영역을 고려해 동적으로 계산한다.
 function getMobCharsPerPage() {
-    const vw = Math.max(320, window.innerWidth || 360);
-    const vh = Math.max(480, (window.visualViewport ? window.visualViewport.height : window.innerHeight) || 640);
+    // 옛 글자 수 기반 분할은 더 이상 주력으로 쓰지 않음.
+    // 측정용 DOM을 만들 수 없는 아주 예외적인 상황에서만 fallback으로 사용.
+    const metrics = getMobilePageMetrics();
     const fs = mobFontSize || 17;
-
-    // 본문 상단은 한 줄 정도 더 올리고, 하단은 Safari 하단바/앱 조작 UI에
-    // 가리지 않도록 더 넉넉하게 비운다. 폰트가 커질수록 페이지당 글자 수를
-    // 강하게 줄여야 실제 렌더링에서 아래 줄이 잘리지 않는다.
-    const reservedTop = 46;
-    const reservedBottom = 226 + Math.max(0, fs - 17) * 18;
-    const usableH = Math.max(190, vh - reservedTop - reservedBottom);
-    const usableW = Math.max(220, vw - 56);
-
-    const lineH = fs * 1.96;
-    const lines = Math.max(4, Math.floor(usableH / lineH));
-    const charsPerLine = Math.max(8, Math.floor(usableW / (fs * 1.03)));
-
-    let density = 0.60;
-    if (fs >= 18) density = 0.54;
-    if (fs >= 20) density = 0.48;
-    if (fs >= 22) density = 0.42;
-
-    return Math.max(70, Math.min(240, Math.floor(lines * charsPerLine * density)));
+    const lineH = fs * 1.82;
+    const lines = Math.max(6, Math.floor(metrics.usableH / lineH));
+    const charsPerLine = Math.max(10, Math.floor(metrics.usableW / (fs * 0.98)));
+    return Math.max(90, Math.min(420, Math.floor(lines * charsPerLine * 0.82)));
 }
 
 // 특수 블록 마커 (분할 시 통째로 유지)
 const BLOCK_MARKER = '\x01BLOCK\x01';
 
-function splitChapterIntoMobPages(content) {
-    // 1. 특수 블록을 마커로 치환해서 분할 방지
-    const blocks = [];
-    let processed = content.replace(/\r/g, '');
+function getMobilePageMetrics() {
+    const vw = Math.max(320, window.innerWidth || 360);
+    const vh = Math.max(480, (window.visualViewport ? window.visualViewport.height : window.innerHeight) || 640);
+    const fs = mobFontSize || 17;
 
-    // 특수 블록 패턴들
+    // preset은 해상도별 안전영역만 잡는다.
+    // 실제 페이지 수는 아래의 DOM 높이 측정으로 결정하므로, 폰트 크기 변경에도 자연스럽게 대응된다.
+    let preset;
+    if (vh <= 650) preset = { top: 30, bottom: 128, side: 22 };
+    else if (vh <= 720) preset = { top: 32, bottom: 136, side: 22 };
+    else if (vh <= 800) preset = { top: 34, bottom: 144, side: 24 };
+    else if (vh <= 880) preset = { top: 36, bottom: 152, side: 24 };
+    else preset = { top: 40, bottom: 160, side: 26 };
+
+    // 폰트가 커질수록 줄높이/문단 margin 오차가 커지므로 아래쪽만 더 보수적으로 확보.
+    const fontExtra = Math.max(0, fs - 17);
+    const top = preset.top + Math.round(fontExtra * 1.5);
+    const bottom = preset.bottom + Math.round(fontExtra * 9);
+    const side = preset.side;
+
+    return {
+        vw, vh, top, bottom, side,
+        usableW: Math.max(220, vw - side * 2),
+        usableH: Math.max(260, vh - top - bottom)
+    };
+}
+
+function applyMobilePageMetrics() {
+    const m = getMobilePageMetrics();
+    const root = document.documentElement;
+    root.style.setProperty('--mob-page-top', m.top + 'px');
+    root.style.setProperty('--mob-page-bottom', m.bottom + 'px');
+    root.style.setProperty('--mob-page-side', m.side + 'px');
+    root.style.setProperty('--mob-page-font-size', (mobFontSize || 17) + 'px');
+    return m;
+}
+
+function getMobileMeasureBox() {
+    let box = document.getElementById('mob-measure-box');
+    const m = applyMobilePageMetrics();
+    if (!box) {
+        box = document.createElement('div');
+        box.id = 'mob-measure-box';
+        box.className = 'mob-slide-text';
+        box.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(box);
+    }
+    box.style.position = 'fixed';
+    box.style.left = '-99999px';
+    box.style.top = '0';
+    box.style.visibility = 'hidden';
+    box.style.pointerEvents = 'none';
+    box.style.width = m.vw + 'px';
+    box.style.height = m.vh + 'px';
+    box.style.fontSize = (mobFontSize || 17) + 'px';
+    box.style.overflow = 'hidden';
+    box.style.boxSizing = 'border-box';
+    return box;
+}
+
+function mobRawToHtmlForMeasure(raw, endHtml = '') {
+    return mobFormatProse(raw || '', false) + (endHtml || '');
+}
+
+function mobRawFits(raw, endHtml = '') {
+    const box = getMobileMeasureBox();
+    box.innerHTML = mobRawToHtmlForMeasure(raw, endHtml);
+    // Safari에서 scrollHeight가 소수점/폰트 로딩 때문에 1~2px 흔들릴 수 있어 3px 여유만 둔다.
+    return box.scrollHeight <= box.clientHeight + 3;
+}
+
+function protectMobileBlocks(content) {
+    const blocks = [];
+    let processed = (content || '').replace(/\r/g, '');
     const blockPatterns = [
         /\[\[transition\]\][\s\S]*?\[\[\/transition\]\]/g,
         /\[chat\][\s\S]*?\[\/chat\]/g,
@@ -577,50 +631,114 @@ function splitChapterIntoMobPages(content) {
         /\[music=.*?\].*?\[\/music\]/g,
         /\[autoplay=.*?\].*?\[\/autoplay\]/g,
     ];
-
     for (const pattern of blockPatterns) {
         processed = processed.replace(pattern, match => {
             blocks.push(match);
             return `${BLOCK_MARKER}${blocks.length - 1}${BLOCK_MARKER}`;
         });
     }
+    return { processed, blocks };
+}
 
-    // 2. 문단 단위로 쪼개기
-    const paragraphs = processed.split(/\n/);
+function restoreMobileBlocks(text, blocks) {
+    return (text || '').replace(new RegExp(`${BLOCK_MARKER}(\\d+)${BLOCK_MARKER}`, 'g'), (_, idx) => blocks[parseInt(idx)] || '');
+}
+
+function tokenizeMobileContent(content) {
+    const { processed, blocks } = protectMobileBlocks(content);
+    return processed.split('\n').map(line => {
+        const restored = restoreMobileBlocks(line, blocks);
+        const isBlock = line.trim().startsWith(BLOCK_MARKER);
+        const isBlank = restored.trim() === '';
+        return { raw: restored, isBlock, isBlank };
+    });
+}
+
+function splitLongTextTokenToPages(raw, pages) {
+    let remaining = raw || '';
+    while (remaining.length > 0) {
+        let lo = 1;
+        let hi = remaining.length;
+        let best = 0;
+        while (lo <= hi) {
+            const mid = Math.floor((lo + hi) / 2);
+            const candidate = remaining.slice(0, mid);
+            if (mobRawFits(candidate)) {
+                best = mid;
+                lo = mid + 1;
+            } else {
+                hi = mid - 1;
+            }
+        }
+        // 어떤 이유로 한 글자도 안 맞는 경우 무한루프 방지
+        if (best <= 0) best = Math.min(remaining.length, Math.max(1, getMobCharsPerPage()));
+
+        // 가능하면 단어/문장 중간을 덜 끊도록 뒤쪽 공백이나 문장부호에서 자른다.
+        let cut = best;
+        if (best < remaining.length) {
+            const windowText = remaining.slice(Math.max(0, best - 24), best + 1);
+            const rel = Math.max(
+                windowText.lastIndexOf(' '),
+                windowText.lastIndexOf('。'),
+                windowText.lastIndexOf('.'),
+                windowText.lastIndexOf('!'),
+                windowText.lastIndexOf('?'),
+                windowText.lastIndexOf('…'),
+                windowText.lastIndexOf(','),
+                windowText.lastIndexOf('，')
+            );
+            if (rel > 6) cut = Math.max(1, Math.max(0, best - 24) + rel + 1);
+        }
+
+        pages.push(remaining.slice(0, cut).trimEnd());
+        remaining = remaining.slice(cut).trimStart();
+    }
+}
+
+function splitChapterIntoMobPages(content) {
+    applyMobilePageMetrics();
+    const tokens = tokenizeMobileContent(content);
     const pages = [];
-    let currentPage = [];
-    let currentLen = 0;
+    let current = '';
 
-    for (const para of paragraphs) {
-        const isBlock = para.startsWith(BLOCK_MARKER);
-        const paraLen = isBlock ? 0 : para.length; // 블록은 길이 0 취급 (강제 안 끊김)
+    const appendLine = (base, line) => base ? `${base}\n${line}` : line;
+    const commit = () => {
+        if (current.trim() !== '') pages.push(current);
+        current = '';
+    };
 
-        // 빈 줄
-        if (!isBlock && para.trim() === '') {
-            currentPage.push(para);
+    for (const token of tokens) {
+        // 과도한 빈 줄은 페이지 첫머리에 쌓지 않음
+        if (token.isBlank && current.trim() === '') continue;
+
+        const candidate = appendLine(current, token.raw);
+        if (mobRawFits(candidate)) {
+            current = candidate;
             continue;
         }
 
-        // 블록이거나 현재 페이지가 비어있으면 그냥 추가
-        if (isBlock || currentLen === 0) {
-            currentPage.push(para);
-            currentLen += paraLen;
-        } else if (currentLen + paraLen > getMobCharsPerPage()) {
-            // 초과 → 새 페이지로
-            pages.push(currentPage.join('\n'));
-            currentPage = [para];
-            currentLen = paraLen;
-        } else {
-            currentPage.push(para);
-            currentLen += paraLen;
+        // 현재 페이지에 무언가 있으면 먼저 확정하고, 같은 토큰을 새 페이지에서 다시 판단
+        if (current.trim() !== '') {
+            commit();
+            if (mobRawFits(token.raw)) {
+                current = token.raw;
+                continue;
+            }
         }
-    }
-    if (currentPage.length > 0) pages.push(currentPage.join('\n'));
 
-    // 3. 마커 복원
-    return pages.map(page =>
-        page.replace(new RegExp(`${BLOCK_MARKER}(\\d+)${BLOCK_MARKER}`, 'g'), (_, idx) => blocks[parseInt(idx)])
-    );
+        // 특수 블록은 너무 커도 쪼개지 말고 단독 페이지로 둔다.
+        if (token.isBlock) {
+            pages.push(token.raw);
+            current = '';
+            continue;
+        }
+
+        // 긴 문단은 실제 높이 기준으로 글자 단위 이진탐색 분할
+        splitLongTextTokenToPages(token.raw, pages);
+    }
+
+    commit();
+    return pages.length ? pages : [''];
 }
 
 function buildReaderPages() {
@@ -896,6 +1014,7 @@ function mobBuildReader() {
     mobChapMap = [];
     mobSlideW = window.innerWidth;
     mobSlideH = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
+    applyMobilePageMetrics();
     mobCurSlide = 0;
 
     // strip 너비 설정
@@ -909,7 +1028,7 @@ function mobBuildReader() {
     coverSlide.style.height = mobSlideH + 'px';
 
     const coverImgHtml = info.url
-        ? `<div style="width:min(72vw,280px);aspect-ratio:10/16;border-radius:14px;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,0.28);margin-bottom:28px;flex-shrink:0;"><img src="${info.url}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.style.display='none'"></div>`
+        ? `<div class="mob-cover-art"><img src="${info.url}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.style.display='none'"></div>`
         : `<div style="font-size:52px;margin-bottom:28px;color:var(--accent2)">❧</div>`;
     coverSlide.innerHTML = `
         <div class="mob-cover-slide">
@@ -918,7 +1037,7 @@ function mobBuildReader() {
             <p style="font-size:12px;color:var(--ink3);line-height:1.7;margin-bottom:20px;font-style:italic;max-width:260px;">${bookState.description || ''}</p>
             <div style="width:32px;height:1px;background:var(--accent2);margin:0 auto 14px;"></div>
             <p style="font-family:var(--sans);font-size:12px;color:var(--ink2);">${bookState.author} 지음</p>
-            <p style="font-family:var(--sans);font-size:11px;color:var(--ink3);margin-top:28px;animation:pulse 2s ease-in-out infinite;">← 스와이프 →</p>
+            <p class="mob-cover-hint">← 스와이프 →</p>
         </div>`;
     strip.appendChild(coverSlide);
     mobSlides.push({ type: 'cover', chapterIdx: -1, pageInChapter: 0, totalInChapter: 1, hasMusicBlock: false });
@@ -1147,6 +1266,7 @@ function mobSetupEvents() {
         const resizeMobileReader = () => {
             mobSlideW = window.innerWidth;
             mobSlideH = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
+            applyMobilePageMetrics();
             document.querySelectorAll('.mob-slide').forEach(s => {
                 s.style.width = mobSlideW + 'px';
                 s.style.height = mobSlideH + 'px';
@@ -1291,25 +1411,25 @@ function mobTocOpen() { document.getElementById('mob-toc-sheet').classList.add('
 function mobTocClose() { document.getElementById('mob-toc-sheet').classList.remove('open'); }
 
 function mobSetFont(val) {
-    mobFontSize = parseInt(val, 10) || 17;
-    document.getElementById('mob-font-val').textContent = mobFontSize;
-
-    // 폰트가 바뀌면 기존 페이지 분량 계산 자체가 달라져야 하므로
-    // 단순히 CSS만 키우지 말고 슬라이드를 다시 분할한다.
-    const curSlide = mobSlides[mobCurSlide];
-    const curCi = curSlide ? curSlide.chapterIdx : -1;
-    const oldRatio = curSlide && curSlide.totalInChapter > 1
-        ? curSlide.pageInChapter / (curSlide.totalInChapter - 1)
+    const oldSlide = mobSlides[mobCurSlide];
+    const oldCi = oldSlide ? oldSlide.chapterIdx : -1;
+    const oldRatio = oldSlide && oldSlide.totalInChapter > 1
+        ? oldSlide.pageInChapter / (oldSlide.totalInChapter - 1)
         : 0;
 
+    mobFontSize = parseInt(val);
+    document.getElementById('mob-font-val').textContent = mobFontSize;
+    applyMobilePageMetrics();
+
+    // 폰트가 바뀌면 실제 렌더링 높이 기준으로 전체 페이지를 다시 나눈다.
     mobBuildReader();
 
-    if (curCi >= 0 && mobChapMap[curCi] !== undefined) {
-        const start = mobChapMap[curCi];
+    if (oldCi >= 0 && mobChapMap[oldCi] !== undefined) {
+        const start = mobChapMap[oldCi];
         const first = mobSlides[start];
         const total = first ? first.totalInChapter : 1;
-        const offset = Math.round(oldRatio * Math.max(0, total - 1));
-        mobGoToSlide(Math.min(start + offset, mobSlides.length - 1), false);
+        const target = start + Math.min(total - 1, Math.max(0, Math.round(oldRatio * Math.max(0, total - 1))));
+        mobGoToSlide(target, false);
     } else {
         mobGoToSlide(0, false);
     }
