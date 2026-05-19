@@ -1560,8 +1560,8 @@ function mobGoToSlide(idx, animate = true) {
     const nextSlide = mobSlides[idx];
     const chapterChanged = !!(prevSlide && nextSlide && prevSlide.chapterIdx !== nextSlide.chapterIdx);
 
-    // 페이지 이동 시 항상 음악 중지 (해당 페이지에서 재생 중인 경우)
-    if (IS_MOBILE) {
+    // 회차가 바뀔 때만 음악 중지
+    if (IS_MOBILE && chapterChanged) {
         mobStopMusic();
     }
 
