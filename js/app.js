@@ -963,6 +963,9 @@ function mobSetupEvents() {
     let startX = 0;
     let startY = 0;
     let lastX = 0;
+    let prevX = 0;
+    let lastMoveTime = 0;
+    let prevMoveTime = 0;
     let dragging = false;
     let lockedVertical = false;
     let movedEnough = false;
@@ -989,8 +992,9 @@ function mobSetupEvents() {
         if (e.pointerType === 'mouse' && e.button !== 0) return;
 
         pointerId = e.pointerId;
-        startX = lastX = e.clientX;
+        startX = lastX = prevX = e.clientX;
         startY = e.clientY;
+        lastMoveTime = prevMoveTime = Date.now();
         dragging = false;
         lockedVertical = false;
         movedEnough = false;
@@ -1004,7 +1008,10 @@ function mobSetupEvents() {
 
         const dx = e.clientX - startX;
         const dy = e.clientY - startY;
+        prevX = lastX;
+        prevMoveTime = lastMoveTime;
         lastX = e.clientX;
+        lastMoveTime = Date.now();
 
         if (!movedEnough && Math.abs(dx) < 7 && Math.abs(dy) < 7) return;
         movedEnough = true;
@@ -1028,9 +1035,13 @@ function mobSetupEvents() {
     strip.addEventListener('pointerup', e => {
         if (pointerId !== e.pointerId) return;
 
-        const dx = e.clientX - startX;
+        // iOS Safari에서는 pointerup 시점의 clientX가 마지막 pointermove 값과 다르게 잡혀
+        // 손을 뗐을 때 원위치로 복귀하는 경우가 있다. 그래서 마지막 move 좌표를 기준으로 판정한다.
+        const dx = lastX - startX;
         const dy = e.clientY - startY;
         const dist = Math.hypot(dx, dy);
+        const dt = Math.max(1, lastMoveTime - prevMoveTime);
+        const vx = (lastX - prevX) / dt;
         const wasDragging = dragging;
         const wasVertical = lockedVertical;
 
@@ -1061,11 +1072,17 @@ function mobSetupEvents() {
         mobSuppressClickUntil = Date.now() + 650;
         setTimeout(() => { mobSwipeLock = false; }, 420);
 
-        const threshold = Math.min(96, Math.max(46, mobSlideW * 0.17));
+        // 스와이프 판정은 거리 + 마지막 속도를 같이 본다.
+        // 기존 17% 기준은 모바일에서 너무 빡세서, 강하게 당겨도 복귀하는 문제가 있었다.
+        const threshold = Math.min(58, Math.max(28, mobSlideW * 0.085));
+        const fastSwipe = Math.abs(vx) > 0.28 && Math.abs(dx) > 14;
         let targetIdx = mobCurSlide;
 
-        if (dx < -threshold) targetIdx = Math.min(mobSlides.length - 1, mobCurSlide + 1);
-        else if (dx > threshold) targetIdx = Math.max(0, mobCurSlide - 1);
+        if ((dx < -threshold || (fastSwipe && vx < 0)) && mobCurSlide < mobSlides.length - 1) {
+            targetIdx = mobCurSlide + 1;
+        } else if ((dx > threshold || (fastSwipe && vx > 0)) && mobCurSlide > 0) {
+            targetIdx = mobCurSlide - 1;
+        }
 
         mobGoToSlide(targetIdx, true);
     }, { passive: true });
