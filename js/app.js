@@ -1988,11 +1988,34 @@ function onYouTubeIframeAPIReady(){
 }
 function onPlayerStateChange(e){if(e.data===YT.PlayerState.ENDED)resetMusicButtons();}
 
+
+function getSafeCurrentPlayingBtn() {
+    if (currentPlayingBtn && currentPlayingBtn.isConnected) {
+        return currentPlayingBtn;
+    }
+
+    currentPlayingBtn = null;
+    return null;
+}
+
+function safeSetPlayingButtonState(isPlaying) {
+    const btn = getSafeCurrentPlayingBtn();
+    if (!btn) return;
+
+    btn.classList.toggle('playing', !!isPlaying);
+
+    const icon = btn.querySelector('.fa-compact-disc');
+    if (icon) {
+        icon.classList.toggle('fa-spin', !!isPlaying);
+    }
+}
+
 function resetMusicButtons(){
-    document.querySelectorAll('.music-link').forEach(btn=>{if(btn)btn.classList.remove('playing');const i=btn.querySelector('.fa-compact-disc');if(i)i.classList.remove('fa-spin');});
-    if(sunoAudioObject){sunoAudioObject.pause();sunoAudioObject=null;}
-    currentPlayingMusicId=null;currentPlayingBtn=null;currentPlayingType=null;
-    updateMasterPlayPauseIcon(false);
+    document.querySelectorAll('.music-link.playing').forEach(btn => {
+        if (btn && btn.isConnected) btn.classList.remove('playing');
+        const icon = btn.querySelector('.fa-compact-disc');
+        if (icon) icon.classList.remove('fa-spin');
+    });
 }
 
 function changeVolume(val){
@@ -2049,12 +2072,12 @@ function toggleMasterPlayPause(){
         return;
     }
     if(currentPlayingType==='suno'&&sunoAudioObject){
-        if(sunoAudioObject.paused){sunoAudioObject.volume=currentVolume/100;sunoAudioObject.play();if(currentPlayingBtn)currentPlayingBtn.classList.add('playing');updateMasterPlayPauseIcon(true);}
-        else{sunoAudioObject.pause();if(currentPlayingBtn)currentPlayingBtn.classList.remove('playing');updateMasterPlayPauseIcon(false);}
+        if(sunoAudioObject.paused){sunoAudioObject.volume=currentVolume/100;sunoAudioObject.play();safeSetPlayingButtonState(true);updateMasterPlayPauseIcon(true);}
+        else{sunoAudioObject.pause();safeSetPlayingButtonState(false);updateMasterPlayPauseIcon(false);}
     }else if(currentPlayingType==='youtube'&&ytAudioPlayer){
         const s=ytAudioPlayer.getPlayerState();
-        if(s===YT.PlayerState.PLAYING){ytAudioPlayer.pauseVideo();if(currentPlayingBtn)currentPlayingBtn.classList.remove('playing');updateMasterPlayPauseIcon(false);}
-        else{ytAudioPlayer.setVolume(currentVolume);ytAudioPlayer.playVideo();if(currentPlayingBtn)currentPlayingBtn.classList.add('playing');updateMasterPlayPauseIcon(true);}
+        if(s===YT.PlayerState.PLAYING){ytAudioPlayer.pauseVideo();safeSetPlayingButtonState(false);updateMasterPlayPauseIcon(false);}
+        else{ytAudioPlayer.setVolume(currentVolume);ytAudioPlayer.playVideo();safeSetPlayingButtonState(true);updateMasterPlayPauseIcon(true);}
     }
 }
 function togglePlayMusic(url,btn){
@@ -2062,13 +2085,13 @@ function togglePlayMusic(url,btn){
     if(!vid&&!sid){showToast('지원하지 않는 링크입니다.','error');return;}
     const isSuno=!!sid,tid=isSuno?sid:vid;
     if(currentPlayingMusicId===tid){
-        if(isSuno&&sunoAudioObject){if(sunoAudioObject.paused){sunoAudioObject.play();if(btn)btn.classList.add('playing');updateMasterPlayPauseIcon(true);}else{sunoAudioObject.pause();if(btn)btn.classList.remove('playing');updateMasterPlayPauseIcon(false);}}
-        else if(ytAudioPlayer){const s=ytAudioPlayer.getPlayerState();if(s===YT.PlayerState.PLAYING){ytAudioPlayer.pauseVideo();if(btn)btn.classList.remove('playing');updateMasterPlayPauseIcon(false);}else{ytAudioPlayer.playVideo();if(btn)btn.classList.add('playing');updateMasterPlayPauseIcon(true);}}
+        if(isSuno&&sunoAudioObject){if(sunoAudioObject.paused){sunoAudioObject.play();if(btn)if (btn && btn.isConnected) btn.classList.add('playing');updateMasterPlayPauseIcon(true);}else{sunoAudioObject.pause();if(btn)if (btn && btn.isConnected) btn.classList.remove('playing');updateMasterPlayPauseIcon(false);}}
+        else if(ytAudioPlayer){const s=ytAudioPlayer.getPlayerState();if(s===YT.PlayerState.PLAYING){ytAudioPlayer.pauseVideo();if(btn)if (btn && btn.isConnected) btn.classList.remove('playing');updateMasterPlayPauseIcon(false);}else{ytAudioPlayer.playVideo();if(btn)if (btn && btn.isConnected) btn.classList.add('playing');updateMasterPlayPauseIcon(true);}}
         return;
     }
     resetMusicButtons();
     currentPlayingMusicId=tid;currentPlayingBtn=btn;currentPlayingType=isSuno?'suno':'youtube';
-    if(btn)btn.classList.add('playing');const di=btn?btn.querySelector('.fa-compact-disc'):null;if(di)di.classList.add('fa-spin');updateMasterPlayPauseIcon(true);
+    if(btn)if (btn && btn.isConnected) btn.classList.add('playing');const di=btn?btn.querySelector('.fa-compact-disc'):null;if(di)di.classList.add('fa-spin');updateMasterPlayPauseIcon(true);
     if(isSuno){
         const isUUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sid);
         if(!isUUID){
