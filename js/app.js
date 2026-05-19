@@ -1349,6 +1349,13 @@ function mobSetupEvents() {
 
             let limitedDx = Math.max(-mobSlideW * 0.95, Math.min(mobSlideW * 0.95, dx));
 
+            // 회차 경계에서는 다음/이전 화가 미리 보이지 않도록 둔탁한 벽처럼 저항을 준다.
+            if (dx < 0 && typeof mobIsLastPageOfChapter === 'function' && mobIsLastPageOfChapter(mobCurSlide)) {
+                limitedDx = Math.max(-mobSlideW * 0.10, dx * 0.16);
+            } else if (dx > 0 && typeof mobIsFirstPageOfChapter === 'function' && mobIsFirstPageOfChapter(mobCurSlide)) {
+                limitedDx = Math.min(mobSlideW * 0.10, dx * 0.16);
+            }
+
             if (dx < 0 && mobIsLastPageOfChapter(mobCurSlide)) {
                 limitedDx = Math.max(-mobSlideW * 0.10, dx * 0.16);
             } else if (dx > 0 && mobIsFirstPageOfChapter(mobCurSlide)) {
@@ -1360,16 +1367,74 @@ function mobSetupEvents() {
     }, { passive: false });
 
     strip.addEventListener('pointerup', e => {
+        if (pointerId !== e.pointerId) return;
+
+        // iOS Safari에서는 pointerup 시점의 clientX가 마지막 pointermove 값과 다르게 잡혀
+        // 손을 뗐을 때 원위치로 복귀하는 경우가 있다. 그래서 마지막 move 좌표를 기준으로 판정한다.
+        const dx = lastX - startX;
+        const dy = e.clientY - startY;
+        const dist = Math.hypot(dx, dy);
+        const dt = Math.max(1, lastMoveTime - prevMoveTime);
+        const vx = (lastX - prevX) / dt;
+        const wasDragging = dragging;
+        const wasVertical = lockedVertical;
+
+        try { strip.releasePointerCapture(pointerId); } catch (_) {}
+        finishPointer();
+
+        if (wasVertical) {
+            snapToCurrent(true);
+            return;
+        }
+
+        if (!wasDragging) {
+            snapToCurrent(true);
+            if (dist < 14 && !isControlTarget(e.target)) {
+                mobSuppressClickUntil = Date.now() + 450;
+                mobToggleUI();
+            }
+            return;
+        }
+
+        if (mobSwipeLock) {
+            snapToCurrent(true);
+            return;
+        }
+
+        mobSwipeLock = true;
+        mobSuppressClickUntil = Date.now() + 650;
+        setTimeout(() => { mobSwipeLock = false; }, 420);
+
+        const threshold = Math.min(58, Math.max(28, mobSlideW * 0.085));
+        const fastSwipe = Math.abs(vx) > 0.28 && Math.abs(dx) > 14;
+        let targetIdx = mobCurSlide;
+
+        if ((dx < -threshold || (fastSwipe && vx < 0)) && mobCurSlide < mobSlides.length - 1) {
+            targetIdx = mobCurSlide + 1;
+        } else if ((dx > threshold || (fastSwipe && vx > 0)) && mobCurSlide > 0) {
+            targetIdx = mobCurSlide - 1;
+        }
+
+        // 회차 경계에서는 바로 넘기지 않고 안내 팝업을 띄운다.
+        // 같은 회차 내부 페이지 이동은 즉시 처리한다.
         if (targetIdx !== mobCurSlide) {
-            if (targetIdx > mobCurSlide && mobIsLastPageOfChapter(mobCurSlide)) {
+            if (targetIdx > mobCurSlide && typeof mobIsLastPageOfChapter === 'function' && mobIsLastPageOfChapter(mobCurSlide)) {
                 snapToCurrent(true);
-                mobShowNextChapterPopup(targetIdx);
+                if (typeof mobShowNextChapterPopup === 'function') {
+                    mobShowNextChapterPopup(targetIdx);
+                } else {
+                    mobGoToSlide(targetIdx, true);
+                }
                 return;
             }
 
-            if (targetIdx < mobCurSlide && mobIsFirstPageOfChapter(mobCurSlide)) {
+            if (targetIdx < mobCurSlide && typeof mobIsFirstPageOfChapter === 'function' && mobIsFirstPageOfChapter(mobCurSlide)) {
                 snapToCurrent(true);
-                mobShowPrevChapterPopup(targetIdx);
+                if (typeof mobShowPrevChapterPopup === 'function') {
+                    mobShowPrevChapterPopup(targetIdx);
+                } else {
+                    mobGoToSlide(targetIdx, true);
+                }
                 return;
             }
         }
@@ -2238,7 +2303,7 @@ function mobConfirmChapterTransition() {
         const curSlide = mobSlides[mobCurSlide];
         const nextSlide = mobSlides[targetIdx];
 
-        if (curSlide && nextSlide && curSlide.chapterIdx !== nextSlide.chapterIdx) {
+        if (curSlide && nextSlide && curSlide.chapterIdx !== nextSlide.chapterIdx && typeof mobStopMusic === 'function') {
             mobStopMusic();
         }
 
