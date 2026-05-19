@@ -1,3 +1,36 @@
+/* ── 디버깅용 에러 로거 — Firestore 저장 (확인 후 제거) ── */
+function _logError(type, msg, extra) {
+    try {
+        const payload = {
+            type, msg: String(msg).slice(0, 500),
+            extra: extra ? String(extra).slice(0, 500) : '',
+            ua: navigator.userAgent.slice(0, 200),
+            t: Date.now(),
+            url: location.href.slice(0, 200)
+        };
+        // Firestore에 저장 (db가 준비됐을 때)
+        const tryLog = () => {
+            if (db) {
+                db.collection('_debug_logs').add(payload).catch(() => {});
+            } else {
+                setTimeout(tryLog, 1000);
+            }
+        };
+        tryLog();
+    } catch(e) {}
+}
+
+window.onerror = function(msg, src, line, col, err) {
+    _logError('onerror', msg + ' ' + src + ':' + line + ':' + col, err && err.stack);
+    return false;
+};
+window.addEventListener('unhandledrejection', e => {
+    _logError('unhandledrejection',
+        e.reason && e.reason.message ? e.reason.message : String(e.reason),
+        e.reason && e.reason.stack ? e.reason.stack : ''
+    );
+});
+
 /* ════════════════════════════════════════════
    GLOBAL STATE
    ════════════════════════════════════════════ */
