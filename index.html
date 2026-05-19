@@ -854,17 +854,21 @@ let preMutedVolume = 15;
    INIT
    ════════════════════════════════════════════ */
 window.onload = function() {
+    loadConfigAndInitialize();
     initDragAndDrop();
     const urlParams = new URLSearchParams(window.location.search);
     const cloudBookId = urlParams.get('id');
     if (cloudBookId) {
         bookmarkState.activeBookId = cloudBookId;
-        // Firebase 초기화 완료 후 로드
-        loadConfigAndInitialize().then(() => {
-            loadBookFromCloud(cloudBookId);
+        firebase.auth().onAuthStateChanged(user => {
+            if (user) {
+                db = firebase.firestore();
+                isFirebaseConnected = true;
+                setBadge('ok', '뉴토끼남 클라우드 연동');
+                loadBookFromCloud(cloudBookId);
+            }
         });
     } else {
-        loadConfigAndInitialize();
         loadLocalBookState();
         renderChapters();
         switchViewMode('author');
@@ -1723,54 +1727,56 @@ function mobSetupEvents() {
     const reader = document.getElementById('mob-reader');
     if (!strip || !reader) return;
 
-    let startX = 0, startY = 0, moved = false, dragging = false, currentX = 0;
+    let startX = 0, startY = 0, dragging = false, dragLocked = false;
 
     reader.addEventListener('touchstart', e => {
-        // UI 바 영역 터치는 무시
         if (e.target.closest('#mob-topbar') || e.target.closest('#mob-bottombar') || e.target.closest('#mob-toc-sheet')) return;
         startX = e.touches[0].clientX;
         startY = e.touches[0].clientY;
-        moved = false;
         dragging = false;
-        currentX = -mobCurSlide * mobSlideW;
+        dragLocked = false;
+        strip.style.transition = 'none';
     }, { passive: true });
 
     reader.addEventListener('touchmove', e => {
         if (e.target.closest('#mob-topbar') || e.target.closest('#mob-bottombar') || e.target.closest('#mob-toc-sheet')) return;
+        if (dragLocked) return; // 수직으로 판정된 경우 무시
         const dx = e.touches[0].clientX - startX;
         const dy = e.touches[0].clientY - startY;
-        if (!moved && Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
-        moved = true;
-        // 수직 스크롤이 우세하면 가로 드래그 안 함
-        if (!dragging && Math.abs(dy) > Math.abs(dx) * 1.2) return;
+        // 아직 방향 미판정
+        if (!dragging && Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        // 수직 우세 → 가로 드래그 잠금
+        if (!dragging && Math.abs(dy) > Math.abs(dx)) { dragLocked = true; return; }
         dragging = true;
-        e.preventDefault(); // 가로 스와이프 중 스크롤 방지
-        strip.style.transition = 'none';
-        strip.style.transform = `translateX(${currentX + dx}px)`;
-    }, { passive: false }); // passive: false 필수 (preventDefault 사용)
+        e.preventDefault();
+        strip.style.transform = `translateX(${-mobCurSlide * mobSlideW + dx}px)`;
+    }, { passive: false });
 
     reader.addEventListener('touchend', e => {
         if (e.target.closest('#mob-topbar') || e.target.closest('#mob-bottombar') || e.target.closest('#mob-toc-sheet')) return;
         const dx = e.changedTouches[0].clientX - startX;
         const dy = e.changedTouches[0].clientY - startY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
 
-        if (!moved || (Math.abs(dx) < 8 && Math.abs(dy) < 8)) {
-            // 탭 — UI 토글
-            if (!e.target.closest('button') && !e.target.closest('input')) {
+        if (!dragging) {
+            // 탭: 손가락이 거의 안 움직인 경우
+            if (dist < 12 && !e.target.closest('button') && !e.target.closest('input')) {
                 mobToggleUI();
             }
+            // 움직임이 있었지만 수직이면 그냥 복귀
+            strip.style.transition = 'transform 0.2s ease-out';
+            strip.style.transform = `translateX(${-mobCurSlide * mobSlideW}px)`;
             return;
         }
 
-        if (dragging) {
+        // 가로 스와이프
+        if (dx < -50 && mobCurSlide < mobSlides.length - 1) {
+            mobGoToSlide(mobCurSlide + 1);
+        } else if (dx > 50 && mobCurSlide > 0) {
+            mobGoToSlide(mobCurSlide - 1);
+        } else {
             strip.style.transition = 'transform 0.2s ease-out';
-            if (dx < -40 && mobCurSlide < mobSlides.length - 1) {
-                mobGoToSlide(mobCurSlide + 1);
-            } else if (dx > 40 && mobCurSlide > 0) {
-                mobGoToSlide(mobCurSlide - 1);
-            } else {
-                strip.style.transform = `translateX(${-mobCurSlide * mobSlideW}px)`;
-            }
+            strip.style.transform = `translateX(${-mobCurSlide * mobSlideW}px)`;
         }
     }, { passive: true });
 
@@ -1788,7 +1794,7 @@ function mobGoToSlide(idx) {
     resetMusicButtons();
     mobCurSlide = idx;
     const strip = document.getElementById('mob-strip');
-    strip.style.transition = 'transform 0.2s ease-out';
+    strip.style.transition = 'transform 0.22s ease-out';
     strip.style.transform = `translateX(${-idx * mobSlideW}px)`;
 
     const slide = mobSlides[idx];
@@ -2323,14 +2329,7 @@ async function saveToCloud(){
 }
 
 async function loadBookFromCloud(id){
-    if(!isFirebaseConnected){
-        // 최대 5초 대기 후 재시도
-        await new Promise(r => setTimeout(r, 1000));
-        if(!isFirebaseConnected){
-            showToast('클라우드 연결 실패. 페이지를 새로고침 해주세요.','error');
-            return;
-        }
-    }
+    if(!isFirebaseConnected){ showToast('클라우드 연결 실패. 새로고침 해주세요.','error'); return; }
     try{
         const doc=await db.collection('novels').doc(id).get();
         if(doc.exists){
