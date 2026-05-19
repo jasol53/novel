@@ -1710,7 +1710,7 @@ async function loadBookFromCloud(id){
         return;
     }
     try{
-        const doc=await db.collection('novels').doc(id).get({source:'server'}).catch(() => db.collection('novels').doc(id).get());
+        const doc=await db.collection('novels').doc(id).get();
         if(doc.exists){
             applyCloudBookData(doc.data(), false);
         }else{
