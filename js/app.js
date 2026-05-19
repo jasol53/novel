@@ -419,12 +419,12 @@ function parseSpecialBlocks(text) {
     });
     text = text.replace(/\[music=(.*?)\](.*?)\[\/music\]/g, (_, link, title) => {
         const clean = link.trim().replace(/"/g, '&quot;');
-        return `\n<div class="music-block"><a onclick="togglePlayMusic('${clean}', this)" class="music-link"><i class="fa-solid fa-compact-disc"></i> <span>${title.trim()}</span></a></div>\n`;
+        return `\n<div class="music-block"><a onclick="togglePlayMusic('${clean}', this)" class="music-link" data-music-url="${clean}"><i class="fa-solid fa-compact-disc"></i> <span>${title.trim()}</span></a></div>\n`;
     });
     // [autoplay=링크]곡명[/autoplay] — 화 진입 시 자동재생, 버튼은 보임
     text = text.replace(/\[autoplay=(.*?)\](.*?)\[\/autoplay\]/g, (_, link, title) => {
         const clean = link.trim().replace(/"/g, '&quot;');
-        return `\n<div class="music-block music-autoplay"><a onclick="togglePlayMusic('${clean}', this)" class="music-link" data-autoplay="true"><i class="fa-solid fa-compact-disc"></i> <span>${title.trim()}</span></a></div>\n`;
+        return `\n<div class="music-block music-autoplay"><a onclick="togglePlayMusic('${clean}', this)" class="music-link" data-autoplay="true" data-music-url="${clean}"><i class="fa-solid fa-compact-disc"></i> <span>${title.trim()}</span></a></div>\n`;
     });
     text = text.replace(/\[image=(.*?)\]([\s\S]*?)\[\/image\]/g, (_, link, cap) => {
         const clean = convertGoogleDriveLink(link.trim());
@@ -609,7 +609,7 @@ function getMobileMeasureBox() {
 }
 
 function mobRawToHtmlForMeasure(raw, endHtml = '') {
-    return mobFormatProse(raw || '', false) + (endHtml || '');
+    return formatProse(raw || '') + (endHtml || '');
 }
 
 function mobRawFits(raw, endHtml = '') {
@@ -1107,6 +1107,63 @@ function mobFormatProse(rawContent, isFirstPage) {
     return out.filter(Boolean).join('');
 }
 
+
+function mobGetCurrentSlideEl() {
+    const slides = document.querySelectorAll('.mob-slide');
+    return slides[mobCurSlide] || null;
+}
+
+function getMusicUrlFromLink(link) {
+    if (!link) return '';
+    const dataUrl = link.getAttribute('data-music-url');
+    if (dataUrl) return dataUrl;
+
+    const onclick = link.getAttribute('onclick') || '';
+    const match = onclick.match(/togglePlayMusic\('([^']+)'/);
+    return match ? match[1] : '';
+}
+
+function getMusicIdFromUrl(url) {
+    if (!url) return '';
+    return extractSunoId(url) || extractVideoId(url) || url;
+}
+
+function mobTryAutoPlayMusicOnPage() {
+    if (!IS_MOBILE) return;
+
+    const slideEl = mobGetCurrentSlideEl();
+    if (!slideEl) return;
+
+    const link = slideEl.querySelector('.music-link');
+    if (!link) return;
+
+    const url = getMusicUrlFromLink(link);
+    if (!url) return;
+
+    const musicId = getMusicIdFromUrl(url);
+
+    if (currentPlayingMusicId && String(currentPlayingMusicId) === String(musicId)) {
+        currentPlayingBtn = link;
+        link.classList.add('playing');
+        return;
+    }
+
+    togglePlayMusic(url, link);
+}
+
+function mobQueueAutoPlayMusic() {
+    if (!IS_MOBILE) return;
+
+    setTimeout(() => {
+        if (Date.now() < mobSuppressClickUntil) {
+            setTimeout(mobTryAutoPlayMusicOnPage, 260);
+            return;
+        }
+
+        mobTryAutoPlayMusicOnPage();
+    }, 260);
+}
+
 function mobSetupEvents() {
     const reader = document.getElementById('mob-reader');
     const strip = document.getElementById('mob-strip');
@@ -1183,7 +1240,15 @@ function mobSetupEvents() {
 
         if (dragging) {
             e.preventDefault();
-            const limitedDx = Math.max(-mobSlideW * 0.95, Math.min(mobSlideW * 0.95, dx));
+
+            let limitedDx = Math.max(-mobSlideW * 0.95, Math.min(mobSlideW * 0.95, dx));
+
+            // 회차 마지막 페이지에서 다음 화 방향으로 밀 때는
+            // 다음 페이지가 보이지 않도록 둔탁한 벽에 막히는 느낌만 준다.
+            if (dx < 0 && mobIsLastPageOfChapter(mobCurSlide)) {
+                limitedDx = Math.max(-mobSlideW * 0.12, dx * 0.18);
+            }
+
             strip.style.transform = `translate3d(${-mobCurSlide * mobSlideW + limitedDx}px,0,0)`;
         }
     }, { passive: false });
@@ -1281,7 +1346,12 @@ function mobSetupEvents() {
 function mobGoToSlide(idx, animate = true) {
     if (idx < 0 || idx >= mobSlides.length) return;
 
-    resetMusicButtons();
+    if (typeof mobCancelNextChapterPopup === 'function') {
+        mobCancelNextChapterPopup();
+    }
+
+    // 모바일 BGM은 페이지 이동마다 끊지 않는다.
+    // 새 페이지에 다른 [music]/[autoplay]가 있으면 아래 자동재생 로직에서 교체된다.
     mobCurSlide = idx;
 
     const strip = document.getElementById('mob-strip');
@@ -1294,8 +1364,7 @@ function mobGoToSlide(idx, animate = true) {
     mobUpdateUI(slide);
     if (slide.chapterIdx >= 0) saveBookmark(idx, 0);
 
-    // 자동 음악 재생용 강제 .click()은 모바일에서 swipe 종료와 겹쳐 두 장 넘어감/토글 오작동을 만들 수 있어 비활성화.
-    // 음악은 독자가 직접 music-link를 눌러 재생한다.
+    if (typeof mobQueueAutoPlayMusic === 'function') mobQueueAutoPlayMusic();
 }
 
 function mobUpdateUI(slide) {
@@ -1905,8 +1974,29 @@ function updateMasterPlayPauseIcon(playing){
 }
 function toggleMasterPlayPause(){
     if(!currentPlayingMusicId){
-        const ml=document.querySelector(`#p${cur} .music-link`);
-        if(ml)ml.click();else showToast('현재 화에 음악이 없습니다.','info');
+        let ml = null;
+
+        if (IS_MOBILE) {
+            const slideEl = mobGetCurrentSlideEl();
+            if (slideEl) ml = slideEl.querySelector('.music-link');
+
+            if (ml) {
+                const url = getMusicUrlFromLink(ml);
+                if (url) {
+                    togglePlayMusic(url, ml);
+                    return;
+                }
+            }
+        } else {
+            ml = document.querySelector(`#p${cur} .music-link`);
+
+            if (ml) {
+                ml.click();
+                return;
+            }
+        }
+
+        showToast('현재 페이지에 음악이 없습니다.','info');
         return;
     }
     if(currentPlayingType==='suno'&&sunoAudioObject){
