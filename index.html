@@ -39,9 +39,11 @@
             // 300ms마다 음악 상태 저장
             setInterval(function() {
                 var audioInfo = '정지';
-                if (typeof currentPlayingMusicId !== 'undefined' && currentPlayingMusicId) {
-                    audioInfo = '재생중: ' + currentPlayingMusicId + ' (' + (typeof currentPlayingType !== 'undefined' ? currentPlayingType : '?') + ')';
-                }
+                try {
+                    if (typeof currentPlayingMusicId !== 'undefined' && currentPlayingMusicId) {
+                        audioInfo = '재생중: ' + currentPlayingMusicId + ' (' + (typeof currentPlayingType !== 'undefined' ? currentPlayingType : '?') + ')';
+                    }
+                } catch(e) {}
                 saveToBlackbox('HB', audioInfo);
             }, 300);
 
