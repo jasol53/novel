@@ -1,4 +1,12 @@
 
+// Bookmark state
+const bookmarkState = {
+    activeBookId: 'local_novel',
+    savedPageIndex: 0,
+    savedParagraphIndex: 0,
+    isRestoring: false
+};
+
 window.onload = async function() {
     await loadConfigAndInitialize();
     initDragAndDrop();
