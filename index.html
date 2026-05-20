@@ -10,112 +10,91 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;500;700&family=Noto+Sans+KR:wght@300;400;500;700&family=Song+Myung&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="./css/style.css">
-<script src="https://cdn.jsdelivr.net/npm/vconsole@3.15.1/dist/vconsole.min.js"></script>
-<script>
-    // 1. vConsole 즉시 최우선 초기화
-    if (typeof VConsole !== 'undefined') {
-        window.vConsole = new VConsole({
-            theme: 'dark',
-            maxLogNumber: 10000
-        });
-    }
-
-    // 2. [블랙박스 엔진] 사파리가 죽기 직전의 상황을 실시간 동기 저장
-    (function() {
-        const STORAGE_KEY = '_safari_crash_blackbox';
-        
-        // 디스크(localStorage)에 실시간으로 로그 강제 동결
-        function saveToBlackbox(type, message) {
-            try {
-                const time = new Date().toLocaleTimeString();
-                const currentLogs = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-                currentLogs.push(`[${time}] [${type}] ${message}`);
-                
-                // 최근 100줄만 유지 (저장소 한도 방지)
-                if (currentLogs.length > 100) currentLogs.shift();
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(currentLogs));
-            } catch(e) {}
+    <!-- vConsole 로드 및 사파리 크래시 추적 블랙박스 덫 -->
+    <script src="https://cdn.jsdelivr.net/npm/vconsole@3.15.1/dist/vconsole.min.js"></script>
+    <script>
+        if (typeof VConsole !== 'undefined') {
+            window.vConsole = new VConsole({
+                theme: 'dark',
+                maxLogNumber: 10000
+            });
         }
 
-        // [핵심 덫] console API를 통째로 낚아채서 실행 즉시 디스크에 박아버림
-        const originalLog = console.log;
-        const originalWarn = console.warn;
-        const originalError = console.error;
-
-        console.log = function(...args) {
-            saveToBlackbox('LOG', args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' '));
-            originalLog.apply(console, args);
-        };
-        console.warn = function(...args) {
-            saveToBlackbox('WARN', args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' '));
-            originalWarn.apply(console, args);
-        };
-        console.error = function(...args) {
-            saveToBlackbox('ERR', args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' '));
-            originalError.apply(console, args);
-        };
-
-        // 3. 0.3초 주기 심장박동 생존 신고 (음악 재생 도중 어느 타이밍에 뻗었는지 추적)
-        let heartbeatCount = 0;
-        setInterval(() => {
-            heartbeatCount++;
-            // app.js의 글로벌 변수나 오디오 상태가 있으면 같이 저장
-            let musicState = 'None';
-            if (typeof currentPlayingMusicId !== 'undefined' && currentPlayingMusicId) {
-                musicState = `재생중 ID: ${currentPlayingMusicId} (타입: ${typeof currentPlayingType !== 'undefined' ? currentPlayingType : 'unknown'})`;
+        (function() {
+            const STORAGE_KEY = '_safari_crash_blackbox';
+            
+            function saveToBlackbox(type, message) {
+                try {
+                    const time = new Date().toLocaleTimeString();
+                    const currentLogs = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+                    currentLogs.push(`[${time}] [${type}] ${message}`);
+                    if (currentLogs.length > 150) currentLogs.shift();
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(currentLogs));
+                } catch(e) {}
             }
-            saveToBlackbox('HEARTBEAT', `사파리 구동 중.. [${heartbeatCount}] / 음악상태: ${musicState}`);
-        }, 300);
 
-        // 4. 일반 스크립트 에러/Promise 거부 에러 덫
-        window.onerror = function(msg, url, line, col, error) {
-            const stack = error && error.stack ? error.stack : 'No stack';
-            saveToBlackbox('CRASH_ERR', `${msg} (${url}:${line}:${col}) \nStack: ${stack}`);
-            return false;
-        };
+            const originalLog = console.log;
+            const originalWarn = console.warn;
+            const originalError = console.error;
 
-        window.addEventListener('unhandledrejection', function(e) {
-            const reason = e.reason;
-            const msg = reason && reason.message ? reason.message : JSON.stringify(reason);
-            const stack = reason && reason.stack ? reason.stack : 'No stack';
-            saveToBlackbox('PROMISE_ERR', `${msg} \nStack: ${stack}`);
-        });
+            console.log = function(...args) {
+                const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ');
+                saveToBlackbox('LOG', msg);
+                originalLog.apply(console, args);
+            };
+            console.warn = function(...args) {
+                const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ');
+                saveToBlackbox('WARN', msg);
+                originalWarn.apply(console, args);
+            };
+            console.error = function(...args) {
+                const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ');
+                saveToBlackbox('ERR', msg);
+                originalError.apply(console, args);
+            };
 
-        // 5. [부활] 새로고침 완료 직후 덫에 걸린 데이터를 vConsole에 살포하고 강제 오픈
-        window.addEventListener('DOMContentLoaded', () => {
-            setTimeout(() => {
-                const saved = localStorage.getItem(STORAGE_KEY);
-                if (saved) {
-                    const logs = JSON.parse(saved);
-                    if (logs.length > 0) {
-                        originalError.call(console, "==== 🚨 사파리 튕김/새로고침 직전 블랙박스 기록 ====");
-                        logs.forEach(logLine => {
-                            originalWarn.call(console, logLine); 
-                        });
-                        originalError.call(console, "===============================================");
-                        
-                        // vConsole 강제 팝업
-                        if (window.vConsole && typeof window.vConsole.show === 'function') {
-                            window.vConsole.show();
-                        }
-                    }
-                    // 한 번 복구해서 보여준 뒤엔 지워서 무한 팝업 방지
-                    localStorage.removeItem(STORAGE_KEY);
+            let heartbeatCount = 0;
+            setInterval(() => {
+                heartbeatCount++;
+                let audioInfo = '정지 상태';
+                if (typeof currentPlayingMusicId !== 'undefined' && currentPlayingMusicId) {
+                    audioInfo = `재생중 ID: ${currentPlayingMusicId} (${typeof currentPlayingType !== 'undefined' ? currentPlayingType : 'unknown'})`;
                 }
-            }, 800);
-        });
-    })();
-</script>
-    window.onerror = function(msg, url, line, col, error) {
-        logErrorToStorage(msg, url, line, col, error);
-        return false;
-    };
-    window.addEventListener('unhandledrejection', function(event) {
-        const reason = event.reason;
-        const msg = reason && reason.message ? reason.message : JSON.stringify(reason);
-        const stack = reason && reason.stack ? reason.stack : 'No stack trace';
-        logErrorToStorage(`[Promise Rejection] ${msg}`, 'Promise', 0, 0, { stack: stack });
-    });
+                saveToBlackbox('HEARTBEAT', `사파리 생존 중.. [${heartbeatCount}] | 음악: ${audioInfo}`);
+            }, 200);
+
+            window.onerror = function(msg, url, line, col, error) {
+                const stack = error && error.stack ? error.stack : 'No stack';
+                saveToBlackbox('CRASH_ERR', `${msg} (${url}:${line}:${col}) \nStack: ${stack}`);
+                return false;
+            };
+            window.addEventListener('unhandledrejection', function(e) {
+                const reason = e.reason;
+                const msg = reason && reason.message ? reason.message : JSON.stringify(reason);
+                saveToBlackbox('PROMISE_ERR', `${msg}`);
+            });
+
+            window.addEventListener('DOMContentLoaded', () => {
+                setTimeout(() => {
+                    const saved = localStorage.getItem(STORAGE_KEY);
+                    if (saved) {
+                        const logs = JSON.parse(saved);
+                        if (logs.length > 0) {
+                            originalError.call(console, "==== 🚨 사파리 새로고침 직전 마지막 블랙박스 기록 ====");
+                            logs.forEach(logLine => {
+                                originalWarn.call(console, logLine); 
+                            });
+                            originalError.call(console, "====================================================");
+                            
+                            if (window.vConsole && typeof window.vConsole.show === 'function') {
+                                window.vConsole.show();
+                            }
+                        }
+                        localStorage.removeItem(STORAGE_KEY);
+                    }
+                }, 800);
+            });
+        })();
     </script>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen transition-colors duration-300">
