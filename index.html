@@ -12,29 +12,51 @@
     <link rel="stylesheet" href="./css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/vconsole@3.15.1/dist/vconsole.min.js"></script>
     <script>
-    if(typeof VConsole !== 'undefined') {
-        var vc = new VConsole();
-        // 콘솔 로그를 localStorage에 자동 저장
-        var _logs = [];
-        ['log','warn','error'].forEach(function(m) {
-            var orig = console[m].bind(console);
-            console[m] = function() {
-                var args = Array.prototype.slice.call(arguments);
-                var text = args.map(function(a){
-                    try { return typeof a === 'object' ? JSON.stringify(a) : String(a); } catch(e){ return String(a); }
-                }).join(' ');
-                _logs.push('['+m.toUpperCase()+'] ' + text);
-                if(_logs.length > 200) _logs.shift();
-                localStorage.setItem('_vconsole_logs', _logs.join('\n'));
-                orig.apply(console, args);
-            };
+    // 1. vConsole 초기화
+    if (typeof VConsole !== 'undefined') {
+        window.vConsole = new VConsole({
+            theme: 'dark',
+            maxLogNumber: 5000
         });
     }
-    // 이전 로그 있으면 표시
-    var _prev = localStorage.getItem('_vconsole_logs');
-    if(_prev && _prev.includes('[ERROR]')) {
-        console.warn('=== 이전 세션 로그 ===\n' + _prev);
+    // 2. 이전 세션(새로고침 전)에 터진 에러가 저장소에 있다면 즉시 vConsole에 뿌리고 패널 강제 오픈
+    (function() {
+        const savedErrors = localStorage.getItem('_safari_crash_errors');
+        if (savedErrors) {
+            window.addEventListener('DOMContentLoaded', () => {
+                setTimeout(() => {
+                    console.error("====== 🚨 새로고침 전 발생한 에러 로그 ======\n" + savedErrors);
+                    if (window.vConsole && typeof window.vConsole.show === 'function') {
+                        window.vConsole.show();
+                    }
+                    localStorage.removeItem('_safari_crash_errors');
+                }, 600);
+            });
+        }
+    })();
+    // 3. 에러 발생 즉시 로컬 저장소에 동기적으로 동결 기록하는 핸들러
+    function logErrorToStorage(msg, url, line, col, error) {
+        try {
+            const errTime = new Date().toLocaleTimeString();
+            const stack = error && error.stack ? error.stack : 'No stack trace';
+            const errorMsg = `[${errTime}] ${msg}\n위치: ${url}:${line}:${col}\n콜스택: ${stack}\n------------------------\n`;
+            const existing = localStorage.getItem('_safari_crash_errors') || '';
+            localStorage.setItem('_safari_crash_errors', existing + errorMsg);
+            if (window.vConsole && typeof window.vConsole.show === 'function') {
+                window.vConsole.show();
+            }
+        } catch (e) {}
     }
+    window.onerror = function(msg, url, line, col, error) {
+        logErrorToStorage(msg, url, line, col, error);
+        return false;
+    };
+    window.addEventListener('unhandledrejection', function(event) {
+        const reason = event.reason;
+        const msg = reason && reason.message ? reason.message : JSON.stringify(reason);
+        const stack = reason && reason.stack ? reason.stack : 'No stack trace';
+        logErrorToStorage(`[Promise Rejection] ${msg}`, 'Promise', 0, 0, { stack: stack });
+    });
     </script>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen transition-colors duration-300">
