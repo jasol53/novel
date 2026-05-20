@@ -2302,7 +2302,6 @@ function mobIsFirstPageOfChapter(idx) {
 
 
 function mobCancelNextChapterPopup() {
-    // 유령 카운트다운 타이머가 백그라운드에서 무한히 증식하여 가상 메모리를 터뜨리는 현상 원천 차단
     if (mobNextChapterCountdown) {
         clearInterval(mobNextChapterCountdown);
         mobNextChapterCountdown = null;
@@ -2310,6 +2309,7 @@ function mobCancelNextChapterPopup() {
     const popup = document.getElementById('mob-next-chapter-popup');
     if (popup) popup.classList.remove('show');
 }
+
 function mobShowChapterTransitionPopup(targetIdx, direction) {
     mobCancelNextChapterPopup();
 
@@ -2364,17 +2364,13 @@ function mobConfirmChapterTransition() {
     if (!popup) return;
 
     const targetIdx = parseInt(popup.dataset.targetIdx || '-1', 10);
-    
-    // 페이지 전환 확정 시 실행중인 타이머 즉시 폭파
     mobCancelNextChapterPopup();
 
     if (!Number.isNaN(targetIdx) && targetIdx >= 0) {
         const curSlide = mobSlides[mobCurSlide];
         const nextSlide = mobSlides[targetIdx];
 
-        // 화가 완전히 변경될 경우 기존 오디오 스트리밍 채널 완전 정지 연동
         if (curSlide && nextSlide && curSlide.chapterIdx !== nextSlide.chapterIdx && typeof mobStopMusic === 'function') {
-            console.log("[Music] 화 변경 확인 - 오디오 메모리 클리어 트리거");
             mobStopMusic();
         }
 
