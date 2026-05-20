@@ -63,8 +63,8 @@
                 if (typeof currentPlayingMusicId !== 'undefined' && currentPlayingMusicId) {
                     audioInfo = '재생중 ID: ' + currentPlayingMusicId + ' (' + (typeof currentPlayingType !== 'undefined' ? currentPlayingType : 'unknown') + ')';
                 }
-                saveToBlackbox('HEARTBEAT', '사파리 엔진 생존 중.. [' + heartbeatCount + '] | 음악: ' + audioInfo);
-            }, 250);
+                saveToBlackbox('HEARTBEAT', '사파리 구동 중.. [' + heartbeatCount + '] | 음악상태: ' + audioInfo);
+            }, 300);
 
             window.onerror = function(msg, url, line, col, error) {
                 var stack = error && error.stack ? error.stack : 'No stack';
