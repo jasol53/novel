@@ -721,3 +721,38 @@
     font-size: 12px;
     font-weight: 700;
 }
+
+
+.mob-next-chapter-actions{
+    display:flex;
+    justify-content:center;
+    gap:8px;
+    margin-top:12px;
+}
+
+.mob-next-chapter-confirm,
+.mob-next-chapter-cancel{
+    border:0;
+    color:#fff;
+    border-radius:999px;
+    padding:7px 16px;
+    font-size:12px;
+    font-weight:700;
+}
+
+.mob-next-chapter-confirm{
+    background:rgba(196,154,108,.55);
+}
+
+.mob-next-chapter-cancel{
+    background:rgba(255,255,255,.12);
+}
+
+.music-link.playing .fa-compact-disc{
+    animation: musicDiscSpin 1.8s linear infinite;
+}
+
+@keyframes musicDiscSpin{
+    from{ transform: rotate(0deg); }
+    to{ transform: rotate(360deg); }
+}
