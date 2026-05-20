@@ -10,19 +10,17 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;500;700&family=Noto+Sans+KR:wght@300;400;500;700&family=Song+Myung&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="./css/style.css">
-    
+
+    <!-- vConsole 블랙박스 (디버깅용) -->
     <script src="https://cdn.jsdelivr.net/npm/vconsole@3.15.1/dist/vconsole.min.js"></script>
     <script>
         if (typeof VConsole !== 'undefined') {
-            window.vConsole = new VConsole({
-                theme: 'dark',
-                maxLogNumber: 10000
-            });
+            window.vConsole = new VConsole({ theme: 'dark', maxLogNumber: 10000 });
         }
 
         (function() {
             var STORAGE_KEY = '_safari_crash_blackbox';
-            
+
             function saveToBlackbox(type, message) {
                 try {
                     var time = new Date().toLocaleTimeString();
@@ -33,65 +31,42 @@
                 } catch(e) {}
             }
 
-            var originalLog = console.log;
-            var originalWarn = console.warn;
-            var originalError = console.error;
+            var origLog = console.log, origWarn = console.warn, origError = console.error;
+            console.log = function() { var m = Array.prototype.slice.call(arguments).map(function(a){return typeof a==='object'?JSON.stringify(a):a;}).join(' '); saveToBlackbox('LOG',m); origLog.apply(console,arguments); };
+            console.warn = function() { var m = Array.prototype.slice.call(arguments).map(function(a){return typeof a==='object'?JSON.stringify(a):a;}).join(' '); saveToBlackbox('WARN',m); origWarn.apply(console,arguments); };
+            console.error = function() { var m = Array.prototype.slice.call(arguments).map(function(a){return typeof a==='object'?JSON.stringify(a):a;}).join(' '); saveToBlackbox('ERR',m); origError.apply(console,arguments); };
 
-            console.log = function() {
-                var args = Array.prototype.slice.call(arguments);
-                var msg = args.map(function(a) { return typeof a === 'object' ? JSON.stringify(a) : a; }).join(' ');
-                saveToBlackbox('LOG', msg);
-                originalLog.apply(console, arguments);
-            };
-            console.warn = function() {
-                var args = Array.prototype.slice.call(arguments);
-                var msg = args.map(function(a) { return typeof a === 'object' ? JSON.stringify(a) : a; }).join(' ');
-                saveToBlackbox('WARN', msg);
-                originalWarn.apply(console, arguments);
-            };
-            console.error = function() {
-                var args = Array.prototype.slice.call(arguments);
-                var msg = args.map(function(a) { return typeof a === 'object' ? JSON.stringify(a) : a; }).join(' ');
-                saveToBlackbox('ERR', msg);
-                originalError.apply(console, arguments);
-            };
-
-            var heartbeatCount = 0;
+            // 300ms마다 음악 상태 저장
             setInterval(function() {
-                heartbeatCount++;
-                var audioInfo = '정지 상태';
+                var audioInfo = '정지';
                 if (typeof currentPlayingMusicId !== 'undefined' && currentPlayingMusicId) {
-                    audioInfo = '재생중 ID: ' + currentPlayingMusicId + ' (' + (typeof currentPlayingType !== 'undefined' ? currentPlayingType : 'unknown') + ')';
+                    audioInfo = '재생중: ' + currentPlayingMusicId + ' (' + (typeof currentPlayingType !== 'undefined' ? currentPlayingType : '?') + ')';
                 }
-                saveToBlackbox('HEARTBEAT', '사파리 구동 중.. [' + heartbeatCount + '] | 음악상태: ' + audioInfo);
+                saveToBlackbox('HB', audioInfo);
             }, 300);
 
             window.onerror = function(msg, url, line, col, error) {
                 var stack = error && error.stack ? error.stack : 'No stack';
-                saveToBlackbox('CRASH_ERR', msg + ' (' + url + ':' + line + ':' + col + ') \nStack: ' + stack);
+                saveToBlackbox('CRASH', msg + ' (' + url + ':' + line + ':' + col + ')\n' + stack);
                 return false;
             };
-
             window.addEventListener('unhandledrejection', function(e) {
                 var reason = e.reason;
                 var msg = reason && reason.message ? reason.message : JSON.stringify(reason);
-                saveToBlackbox('PROMISE_ERR', msg);
+                saveToBlackbox('PROMISE', msg);
             });
 
+            // 재시작 후 이전 로그 표시
             window.addEventListener('DOMContentLoaded', function() {
                 setTimeout(function() {
                     var saved = localStorage.getItem(STORAGE_KEY);
                     if (saved) {
                         var logs = JSON.parse(saved);
                         if (logs.length > 0) {
-                            originalError.call(console, "==== 🚨 사파리 새로고침 직전 마지막 블랙박스 기록 ====");
-                            logs.forEach(function(logLine) {
-                                originalWarn.call(console, logLine); 
-                            });
-                            originalError.call(console, "====================================================");
-                            if (window.vConsole && typeof window.vConsole.show === 'function') {
-                                window.vConsole.show();
-                            }
+                            origError.call(console, '==== 🚨 이전 세션 블랙박스 ====');
+                            logs.forEach(function(l) { origWarn.call(console, l); });
+                            origError.call(console, '================================');
+                            if (window.vConsole && window.vConsole.show) window.vConsole.show();
                         }
                         localStorage.removeItem(STORAGE_KEY);
                     }
@@ -101,74 +76,322 @@
     </script>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen transition-colors duration-300">
+<script>if(new URLSearchParams(location.search).get('id')){document.write('<style id="hs">#author-header,#author-workspace,#author-footer{display:none!important}body{background:#f4f1eb!important}</style>');}</script>
 
-<div class="topbar fixed top-0 left-0 right-0 z-50">
-    <div class="flex items-center space-x-2">
-        <button id="btnToc" onclick="toggleToc()" class="tb-btn"><i class="fa-solid fa-bars"></i></button>
-        <span id="tbTitle" class="text-sm font-semibold truncate max-w-[180px] sm:max-w-xs">뉴토끼남 뷰어</span>
-    </div>
-    <div class="flex items-center space-x-1">
-        <button onclick="toggleTheme()" class="tb-btn"><i class="fa-solid fa-moon"></i></button>
-        <button onclick="openFontModal()" class="tb-btn"><i class="fa-solid fa-font"></i></button>
-        <button onclick="openShareModal()" class="tb-btn text-indigo-600"><i class="fa-solid fa-cloud-arrow-up"></i></button>
-    </div>
-    <div id="page-top-scroll-progress"></div>
-</div>
 
-<div id="reader-top-progress-container" class="fixed top-[48px] left-0 right-0 h-1 bg-slate-200 z-40 hidden">
-    <div id="reader-top-progress-fill" class="h-full bg-indigo-600 w-0 transition-all duration-200"></div>
-    <div id="reader-top-progress-label" class="absolute right-2 top-2 bg-slate-900/80 text-white text-[10px] px-1.5 py-0.5 rounded font-mono hidden">0%</div>
-</div>
 
-<div id="sbBack" onclick="toggleToc()" class="fixed inset-0 bg-black/40 z-50 hidden transition-opacity duration-300 opacity-0"></div>
-<div id="sbPanel" class="fixed top-0 bottom-0 left-0 w-[280px] bg-white border-r border-slate-200 z-50 shadow-2xl transform -translate-x-full transition-transform duration-300 flex flex-col">
-    <div class="p-4 border-bottom border-slate-100 flex items-center justify-between bg-slate-50">
-        <h2 class="font-bold text-slate-800 flex items-center"><i class="fa-solid fa-book-open text-indigo-600 mr-2"></i>회차 목차</h2>
-        <button onclick="toggleToc()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
-    </div>
-    <div id="sbToc" class="flex-1 overflow-y-auto p-2 space-y-1">
-        </div>
-</div>
-
-<div id="fontModal" onclick="closeFontModal()" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
-    <div onclick="event.stopPropagation()" class="bg-white rounded-2xl w-full max-w-sm p-5 shadow-xl transform scale-95 transition-transform duration-200">
-        <h3 class="font-bold text-slate-900 mb-4 flex items-center"><i class="fa-solid fa-sliders text-indigo-600 mr-2"></i>보기 설정</h3>
-        
-        <div class="space-y-4">
-            <div>
-                <label class="text-xs font-bold text-slate-500 block mb-1.5">글꼴 선택</label>
-                <div class="grid grid-cols-3 gap-2">
-                    <button onclick="changeFont('serif')" class="py-2 border border-slate-200 rounded-xl font-serif text-sm hover:border-indigo-500 font-medium">명조체</button>
-                    <button onclick="changeFont('sans')" class="py-2 border border-slate-200 rounded-xl font-sans text-sm hover:border-indigo-500 font-medium">고딕체</button>
-                    <button onclick="changeFont('song')" class="py-2 border border-slate-200 rounded-xl font-medium style-song text-sm hover:border-indigo-500">송명체</button>
+<div id="app" class="flex flex-col min-h-screen">
+    
+    <header id="author-header" class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="goHome()">
+                <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md shadow-indigo-200">
+                    <i class="fa-solid fa-rabbit text-lg"></i>
+                </div>
+                <div>
+                    <span class="font-bold text-slate-800 text-lg block leading-none">뉴토끼남</span>
+                    <span class="text-xs text-slate-400 font-medium">나만의 실시간 E-Book 메이커</span>
                 </div>
             </div>
-            
-            <div>
-                <label class="text-xs font-bold text-slate-500 block mb-1.5">글자 크기</label>
-                <div class="flex items-center justify-between bg-slate-50 p-2 border border-slate-200 rounded-xl">
-                    <button onclick="adjustFontSize(-1)" class="w-8 h-8 rounded-lg bg-white border border-slate-200 shadow-sm font-bold text-slate-600 hover:bg-slate-50">-</button>
-                    <span id="font-size-indicator" class="font-mono text-sm font-bold text-slate-700">16px</span>
-                    <button onclick="adjustFontSize(1)" class="w-8 h-8 rounded-lg bg-white border border-slate-200 shadow-sm font-bold text-slate-600 hover:bg-slate-50">+</button>
-                </div>
+            <div class="flex items-center space-x-2 bg-slate-100 p-1 rounded-xl">
+                <button id="btn-mode-author" onclick="switchViewMode('author')" class="px-4 py-1.5 rounded-lg text-sm font-semibold transition-all duration-200 bg-white text-indigo-600 shadow-sm">
+                    <i class="fa-solid fa-pen-nib mr-1.5"></i>작가 모드
+                </button>
+                <button id="btn-mode-reader" onclick="switchViewMode('reader')" class="px-4 py-1.5 rounded-lg text-sm font-semibold transition-all duration-200 text-slate-500 hover:text-slate-800">
+                    <i class="fa-solid fa-book-open-reader mr-1.5"></i>독자 뷰어
+                </button>
             </div>
-
-            <div>
-                <label class="text-xs font-bold text-slate-500 block mb-1.5">줄간격 설정</label>
-                <div class="grid grid-cols-3 gap-2">
-                    <button onclick="changeLineHeight('1.5')" class="py-1.5 border border-slate-200 rounded-xl text-xs font-mono font-bold">1.5</button>
-                    <button onclick="changeLineHeight('1.8')" class="py-1.5 border border-slate-200 rounded-xl text-xs font-mono font-bold border-indigo-600 text-indigo-600 bg-indigo-50/20">1.8</button>
-                    <button onclick="changeLineHeight('2.1')" class="py-1.5 border border-slate-200 rounded-xl text-xs font-mono font-bold">2.1</button>
+            <div class="flex items-center space-x-3">
+                <button onclick="promptAuthorMode()" class="w-10 h-10 rounded-xl hover:bg-slate-100 flex items-center justify-center text-slate-400 transition-all" title="작가 모드">
+                    <i class="fa-solid fa-lock text-base"></i>
+                </button>
+                <button onclick="openConfigModal()" class="w-10 h-10 rounded-xl hover:bg-slate-100 flex items-center justify-center text-slate-500 transition-all border border-slate-200">
+                    <i class="fa-solid fa-gear text-lg"></i>
+                </button>
+                <div id="db-status-badge" class="flex items-center px-3 py-1.5 bg-amber-50 text-amber-700 text-xs font-semibold rounded-lg border border-amber-200">
+                    <span class="w-2 h-2 bg-amber-500 rounded-full mr-2 animate-pulse"></span>연결 중...
                 </div>
             </div>
         </div>
-        
-        <button onclick="closeFontModal()" class="w-full mt-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-sm shadow-sm">설정 완료</button>
+    </header>
+
+    <main id="author-workspace" class="flex-1 max-w-7xl w-full mx-auto px-4 py-6 flex flex-col md:flex-row gap-6">
+        <div class="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4">
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                <h3 class="font-bold text-slate-800 mb-4 flex items-center">
+                    <i class="fa-solid fa-circle-info text-indigo-500 mr-2"></i>책 기본정보 설정
+                </h3>
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-xs font-bold text-slate-400 block mb-1">도서 제목</label>
+                        <input type="text" id="input-book-title" value="나의 첫 번째 이야기책" oninput="updateBookInfo()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-slate-400 block mb-1">작가명</label>
+                        <input type="text" id="input-book-author" value="무명작가" oninput="updateBookInfo()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-slate-400 block mb-1">작품 설명 (표지 시놉시스)</label>
+                        <textarea id="input-book-description" placeholder="표지에 표시될 작품 소개" oninput="updateBookInfo()" class="w-full h-24 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none leading-normal"></textarea>
+                    </div>
+                    <div class="border-t border-slate-100 pt-3">
+                        <span class="text-xs font-bold text-indigo-600 block mb-2"><i class="fa-solid fa-image mr-1"></i>기기 최적화 표지 등록</span>
+                        <div class="space-y-2.5">
+                            <div>
+                                <label class="text-[10px] font-bold text-slate-400 block mb-0.5">① 웹소설 규격 (1:1.6 / 모바일)</label>
+                                <input type="url" id="input-book-cover-webnovel" placeholder="이미지 URL" oninput="updateBookInfo()" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-bold text-slate-400 block mb-0.5">② 태블릿 규격 (3:4)</label>
+                                <input type="url" id="input-book-cover-tablet" placeholder="이미지 URL" oninput="updateBookInfo()" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-bold text-slate-400 block mb-0.5">③ 단행본 규격 (1:1.414 / 데스크톱)</label>
+                                <input type="url" id="input-book-cover-standard" placeholder="이미지 URL" oninput="updateBookInfo()" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex-1 flex flex-col min-h-[350px]">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-slate-800 flex items-center">
+                        <i class="fa-solid fa-list-ol text-indigo-500 mr-2"></i>수록된 회차 목차
+                    </h3>
+                    <span id="chapter-count" class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md text-xs font-bold">0화</span>
+                </div>
+                <div id="author-chapter-list" class="flex-1 overflow-y-auto space-y-2 max-h-[300px] pr-1">
+                    <div class="text-center py-10 text-slate-400 text-sm">
+                        <i class="fa-solid fa-box-open text-3xl mb-2 block"></i>
+                        등록된 회차가 없습니다.
+                    </div>
+                </div>
+                <button onclick="saveToCloud()" class="w-full mt-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold text-sm shadow-md shadow-indigo-100 flex items-center justify-center transition-all">
+                    <i class="fa-solid fa-cloud-arrow-up mr-2"></i>클라우드 저장 및 공유하기
+                </button>
+            </div>
+        </div>
+
+        <div class="flex-1 flex flex-col gap-4">
+            <div id="drop-zone" class="border-2 border-dashed border-indigo-200 bg-indigo-50/30 hover:bg-indigo-50/70 rounded-2xl p-6 text-center cursor-pointer transition-all">
+                <input type="file" id="file-uploader" class="hidden" accept=".txt">
+                <div class="flex flex-col items-center justify-center" onclick="document.getElementById('file-uploader').click()">
+                    <i class="fa-solid fa-file-arrow-up text-indigo-500 text-3xl mb-2"></i>
+                    <h4 class="font-semibold text-slate-700 text-sm">TXT 원고를 여기에 넣어주세요</h4>
+                </div>
+            </div>
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col flex-1">
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4">
+                    <div class="flex-1">
+                        <input type="text" id="edit-chapter-title" placeholder="회차 제목을 입력하세요" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-semibold">
+                    </div>
+                    <div class="flex items-end gap-2">
+                        <button id="btn-cancel-edit" onclick="resetEditor()" class="hidden h-10 px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-sm font-semibold flex items-center justify-center transition-all font-sans">새 회차 작성 (수정 취소)</button>
+                        <button id="btn-submit-chapter" onclick="addOrUpdateChapter()" class="w-full sm:w-auto h-10 px-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold flex items-center justify-center transition-all shadow-sm font-sans">이 회차를 등록</button>
+                    </div>
+                </div>
+                <div class="flex-1 flex flex-col min-h-[300px]">
+                    <textarea id="edit-chapter-content" placeholder="이곳에 소설 본문을 작성하거나 붙여넣으세요." class="w-full flex-1 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-700 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-serif resize-none leading-relaxed"></textarea>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 독자 뷰어 -->
+    <div id="reader-workspace" class="hidden fixed inset-0 flex flex-col z-50 font-sans" style="background:var(--bg);color:var(--ink);">
+        <div class="topbar">
+            <button class="tb-btn" id="tbLeft"><i class="fa-solid fa-bars"></i></button>
+            <div class="tb-center-progress">
+                <span id="tbTitle" class="tb-title text-center block font-sans">뉴토끼남 뷰어</span>
+                <div class="reader-progress-track">
+                    <div id="reader-top-progress-fill" class="reader-progress-fill"></div>
+                </div>
+                <span id="reader-top-progress-label" class="reader-progress-label">0%</span>
+            </div>
+            <div class="flex items-center space-x-1">
+                <div class="volume-control-wrap">
+                    <i class="fa-solid fa-volume-low text-xs cursor-pointer" id="volume-icon" onclick="toggleMute()"></i>
+                    <input type="range" id="volume-slider" class="volume-slider" min="0" max="100" value="15" oninput="changeVolume(this.value)">
+                    <button id="master-play-pause-btn" class="w-6 h-6 rounded hover:bg-amber-100 flex items-center justify-center text-xs ml-1" onclick="toggleMasterPlayPause()">
+                        <i class="fa-solid fa-play"></i>
+                    </button>
+                </div>
+                <button class="tb-btn" id="tbRight" style="font-size:14px;"><i class="fa-solid fa-font"></i></button>
+                <button class="tb-btn" onclick="promptAuthorMode()" style="font-size:16px;" title="작가 모드"><i class="fa-solid fa-lock"></i></button>
+            </div>
+            <div id="page-top-scroll-progress"></div>
+        </div>
+
+        <div class="body-row">
+            <nav class="sidebar" id="sidebar">
+                <div class="sidebar-inner">
+                    <div class="sb-info">
+                        <div class="sb-book-title" id="sb-book-title-el">제목</div>
+                        <div class="sb-book-author" id="sb-book-author-el">작가 지음</div>
+                    </div>
+                    <div class="sb-section">진행</div>
+                    <div class="sb-prog-track"><div class="sb-prog-fill" id="sbFill" style="width:0%"></div></div>
+                    <div class="sb-prog-text" id="sbText">표지</div>
+                    <div class="sb-divider"></div>
+                    <div class="sb-section">목차</div>
+                    <div class="sb-toc" id="sbToc"></div>
+                    <div class="sb-font-row">
+                        <span class="sb-font-label font-sans">글자 크기</span>
+                        <button class="font-btn" id="pcFontDown">A-</button>
+                        <span class="font-val" id="pcFontVal">16</span>
+                        <button class="font-btn" id="pcFontUp">A+</button>
+                    </div>
+                </div>
+            </nav>
+
+            <div class="stage" id="stage">
+                <canvas id="flipCanvas" style="position:absolute;inset:0;width:100%;height:100%;z-index:40;display:none;touch-action:none;"></canvas>
+            </div>
+        </div>
+
+        <div class="pc-bottom" id="pcBottom">
+            <button class="nav-btn" id="pcPrev" onclick="navigateToAdjacentChapter(-1)" disabled><i class="fa-solid fa-chevron-left"></i> 이전화</button>
+            <div class="pc-dots" id="pcDots"></div>
+            <button class="nav-btn" id="pcNext" onclick="navigateToAdjacentChapter(1)">다음화 <i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+
+        <div class="mob-bottom" id="mobBottom" style="display:none;">
+            <button class="mob-nav" id="mobPrev" onclick="navigateToAdjacentChapter(-1)" disabled>← 이전화</button>
+            <div class="mob-dots" id="mobDots"></div>
+            <button class="mob-nav" id="mobNext" onclick="navigateToAdjacentChapter(1)">다음화 →</button>
+        </div>
+
+        <div class="menu-overlay" id="menuOverlay">
+            <div class="menu-sheet">
+                <div class="menu-handle"></div>
+                <div class="menu-section">목차</div>
+                <div id="mobTocContainer" class="max-h-[250px] overflow-y-auto"></div>
+                <div class="menu-sep"></div>
+                <div class="menu-font-row">
+                    <label style="font-family:var(--sans);font-size:13px;color:var(--ink2);flex:1;">글자 크기</label>
+                    <button class="mfc-btn" id="mobFontDown">A-</button>
+                    <span class="mfc-val" id="mobFontVal">16</span>
+                    <button class="mfc-btn" id="mobFontUp">A+</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer id="author-footer" class="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-400">
+        <p>© 2026 뉴토끼남 E-Book Platform. All rights reserved.</p>
+    </footer>
+</div>
+
+<!-- ── MOBILE KAKAO-STYLE READER ── -->
+<div id="mob-reader">
+    <!-- 슬라이드 스트립 -->
+    <div id="mob-strip"></div>
+
+    <!-- 상단 바: 목차 + 볼륨 + 화 정보 + 화 이동 -->
+    <div id="mob-topbar">
+        <div class="mob-topbar-row1">
+            <button class="mob-tb-btn" onclick="mobTocOpen()"><i class="fa-solid fa-bars"></i></button>
+            <span id="mob-tb-title" class="mob-tb-title-text">뷰어</span>
+            <div class="mob-tb-right">
+                <i class="fa-solid fa-volume-low text-xs cursor-pointer" id="mob-volume-icon" onclick="toggleMute()" style="color:var(--ink3);"></i>
+                <input type="range" id="mob-volume-slider" min="0" max="100" value="15" oninput="changeVolume(this.value);document.getElementById('volume-slider').value=this.value;" style="-webkit-appearance:none;width:50px;height:3px;background:var(--border);border-radius:2px;outline:none;cursor:pointer;">
+                <button class="mob-tb-btn" id="mob-play-btn" onclick="toggleMasterPlayPause()" style="width:28px;height:28px;font-size:13px;"><i class="fa-solid fa-play"></i></button>
+                <button class="mob-tb-btn" onclick="promptAuthorMode()" style="width:28px;height:28px;font-size:14px;"><i class="fa-solid fa-lock"></i></button>
+            </div>
+        </div>
+        <div class="mob-topbar-row2">
+            <button class="mob-ch-nav-btn" id="mob-prev-ch" onclick="mobPrevChapter()"><i class="fa-solid fa-chevron-left"></i></button>
+            <div class="mob-ch-progress-wrap">
+                <div class="mob-ch-label" id="mob-ch-label">표지</div>
+                <div class="mob-ch-track"><div class="mob-ch-fill" id="mob-ch-fill" style="width:0%"></div></div>
+            </div>
+            <button class="mob-ch-nav-btn" id="mob-next-ch" onclick="mobNextChapter()"><i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+    </div>
+
+    <!-- 하단 바: 페이지 이동 + 페이지 프로그레스 + 글자크기 -->
+    <div id="mob-bottombar">
+        <div class="mob-page-nav-row">
+            <button class="mob-page-nav-btn" id="mob-prev-page" onclick="mobGoToSlide(mobCurSlide-1)"><i class="fa-solid fa-chevron-left"></i> 이전</button>
+            <div class="mob-page-progress-wrap">
+                <div class="mob-page-track"><div class="mob-page-fill" id="mob-page-fill" style="width:0%"></div></div>
+                <span class="mob-page-label" id="mob-page-label">1 / 1</span>
+            </div>
+            <button class="mob-page-nav-btn" id="mob-next-page" onclick="mobGoToSlide(mobCurSlide+1)">다음 <i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+        <div class="mob-font-row">
+            <span class="mob-font-label" style="font-size:13px;">가</span>
+            <input type="range" class="mob-font-slider" id="mob-font-slider" min="13" max="22" value="17" oninput="mobSetFont(this.value)">
+            <span class="mob-font-val" id="mob-font-val">17</span>
+            <span class="mob-font-label" style="font-size:17px;">가</span>
+        </div>
+    </div>
+
+    <!-- 목차 시트 -->
+    <div id="mob-toc-sheet">
+        <div class="mob-toc-backdrop" onclick="mobTocClose()"></div>
+        <div class="mob-toc-panel" id="mob-toc-panel">
+            <div class="mob-toc-title">목차</div>
+            <div id="mob-toc-list"></div>
+        </div>
     </div>
 </div>
 
-<div id="shareModal" onclick="closeShareModal()" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
-    <div onclick="event.stopPropagation()" class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl text-center">
+<!-- 커스텀 삭제 확인 모달 -->
+<div id="modal-confirm-delete" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl text-center">
+        <div class="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fa-solid fa-trash-can text-2xl"></i>
+        </div>
+        <h3 class="font-bold text-slate-800 text-lg mb-1">정말 삭제하시겠습니까?</h3>
+        <p class="text-xs text-slate-400 mb-5">삭제된 원고는 복구할 수 없습니다.</p>
+        <div class="flex gap-2">
+            <button onclick="closeDeleteModal(false)" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm">취소</button>
+            <button onclick="closeDeleteModal(true)" class="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-sm">삭제</button>
+        </div>
+    </div>
+</div>
+
+<!-- 이어읽기 복원 모달 -->
+<div id="modal-bookmark" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl text-center">
+        <div class="w-16 h-16 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fa-solid fa-bookmark text-2xl"></i>
+        </div>
+        <h3 class="font-bold text-slate-800 text-lg mb-1">읽던 지점이 있습니다</h3>
+        <p id="bookmark-info-text" class="text-xs text-slate-400 mb-5 leading-relaxed">이전에 읽던 지점부터 이어서 보시겠습니까?</p>
+        <div class="flex gap-2">
+            <button onclick="closeBookmarkModal(false)" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm">처음부터</button>
+            <button onclick="closeBookmarkModal(true)" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm">이어서 읽기</button>
+        </div>
+    </div>
+</div>
+
+<!-- Firebase 설정 모달 -->
+<div id="modal-config" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl flex flex-col max-h-[90vh]">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <h3 class="font-bold text-slate-800 text-lg">클라우드 DB 설정</h3>
+            <button onclick="closeConfigModal()" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400"><i class="fa-solid fa-xmark text-lg"></i></button>
+        </div>
+        <div class="py-4 text-sm text-slate-600">
+            <p class="mb-3 text-xs text-slate-400">현재 뉴토끼남 Firebase 프로젝트에 연결되어 있습니다.</p>
+            <div>
+                <label class="text-xs font-bold text-slate-400 block mb-1">Firebase Config (변경 시 붙여넣기)</label>
+                <textarea id="config-textarea" class="w-full h-32 p-3 bg-slate-900 text-emerald-400 font-mono text-xs rounded-xl focus:outline-none" placeholder='const firebaseConfig = { apiKey: "...", ... };'></textarea>
+            </div>
+        </div>
+        <div class="pt-4 border-t border-slate-100 flex items-center justify-end space-x-2">
+            <button onclick="clearConfig()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-semibold">초기화</button>
+            <button onclick="saveConfig()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold">적용하기</button>
+        </div>
+    </div>
+</div>
+
+<!-- 공유 링크 모달 -->
+<div id="modal-share" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl text-center">
         <div class="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
             <i class="fa-solid fa-paper-plane text-2xl"></i>
         </div>
@@ -181,47 +404,15 @@
     </div>
 </div>
 
+<!-- YouTube BGM container -->
 <div id="yt-audio-container" style="position:absolute;width:1px;height:1px;left:-9999px;top:-9999px;overflow:hidden;opacity:0;pointer-events:none;">
-    <div id="ytAudioPlayer"></div>
+    <div id="yt-audio-player"></div>
 </div>
 
-<div id="pc-view" class="hidden pt-[48px] h-screen flex">
-    <div class="w-[60px] border-r border-slate-200 flex flex-col items-center py-4 justify-between bg-white select-none">
-        <button id="pcPrev" onclick="pcPrevPage()" class="w-10 h-10 rounded-xl flex items-center justify-center border border-slate-200 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-white"><i class="fa-solid fa-chevron-left text-sm"></i></button>
-        <div id="pc-page-dots" class="flex flex-col space-y-2 max-h-[60vh] overflow-y-auto px-2 py-1"></div>
-        <button id="pcNext" onclick="pcNextPage()" class="w-10 h-10 rounded-xl flex items-center justify-center border border-slate-200 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-white"><i class="fa-solid fa-chevron-right text-sm"></i></button>
-    </div>
-    <div id="pc-container" class="flex-1 relative bg-slate-100 overflow-hidden"></div>
-</div>
-
-<div id="mob-view" class="hidden fixed inset-0 overflow-hidden bg-black select-none">
-    <div id="mob-strip" class="h-full flex will-change-transform"></div>
-</div>
-
-<div id="statusbar" class="fixed bottom-0 left-0 right-0 h-8 bg-white border-t border-slate-200 flex items-center justify-between px-4 text-xs text-slate-500 z-40 select-none">
-    <div class="flex items-center space-x-2 font-medium">
-        <i class="fa-solid fa-bookmark text-indigo-500"></i>
-        <span id="sbText">표지</span>
-    </div>
-    <div class="flex items-center space-x-4 w-1/3 max-w-xs">
-        <div class="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200/60">
-            <div id="sbFill" class="h-full bg-indigo-500 w-0 transition-all duration-300"></div>
-        </div>
-    </div>
-</div>
-
-<div id="master-music-widget" class="fixed bottom-12 right-4 bg-slate-900/90 text-white p-2.5 rounded-2xl shadow-xl z-50 flex items-center space-x-3 border border-white/10 backdrop-blur-md hidden transition-all duration-300 translate-y-2 opacity-0">
-    <div class="relative w-8 h-8 flex items-center justify-center bg-indigo-600 rounded-xl shadow-inner">
-        <i id="master-widget-disc" class="fa-solid fa-compact-disc text-base"></i>
-    </div>
-    <div class="flex flex-col max-w-[110px]">
-        <span class="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">Now Playing</span>
-        <span id="master-widget-title" class="text-xs font-bold truncate opacity-90">배경음악 재생 중</span>
-    </div>
-    <button onclick="toggleMasterPlayPause()" class="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-xs transition-colors">
-        <i id="master-widget-play-icon" class="fa-solid fa-pause"></i>
-    </button>
-</div>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+<script src="https://www.youtube.com/iframe_api"></script>
 
 <script src="./js/app.js"></script>
 </body>
