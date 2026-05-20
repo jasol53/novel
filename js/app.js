@@ -1,12 +1,55 @@
+/* ════════════════════════════════════════════
+   GLOBAL STATE
+   ════════════════════════════════════════════ */
+const bookState = {
+    title: "나의 첫 번째 이야기책", author: "무명작가",
+    description: "", coverUrlWebnovel: "", coverUrlTablet: "", coverUrlStandard: "",
+    chapters: [], currentChapterIndex: 0, viewMode: 'author'
+};
+let editingChapterId = null;
+let deleteIdxTarget = null;
+let db = null;
+let isFirebaseConnected = false;
+
+const IS_MOBILE = (navigator.maxTouchPoints > 0) || (window.innerWidth < 768);
+
+// Reader engine state
+let TOTAL = 1;
+let TITLES = [];
+let bkPages = [];
+let cur = 0;
+let fontSize = 16;
+let pcDots = [];
+let mobDots = [];
+let flipping = false;
+let readerInitialized = false;
 
 // Bookmark state
 const bookmarkState = {
     activeBookId: 'local_novel',
-    savedPageIndex: 0,
-    savedParagraphIndex: 0,
-    isRestoring: false
+    savedPageIndex: 0, savedParagraphIndex: 0, isRestoring: false
 };
 
+// Page curl state
+const st = {
+    phase: 'idle', dir: 0, grabX: 0, grabY: 0, curX: 0, curY: 0,
+    targetX: 0, targetY: 0, fromX: 0, fromY: 0,
+    startTime: 0, duration: 0, targetIdx: -1, completing: false
+};
+
+// BGM state
+let ytAudioPlayer = null;
+let sunoAudioObject = null;
+let currentPlayingMusicId = null;
+let currentPlayingBtn = null;
+let currentPlayingType = null;
+let currentVolume = 15;
+let isMuted = false;
+let preMutedVolume = 15;
+
+/* ════════════════════════════════════════════
+   INIT
+   ════════════════════════════════════════════ */
 window.onload = async function() {
     await loadConfigAndInitialize();
     initDragAndDrop();
@@ -522,7 +565,7 @@ function getMobilePageMetrics() {
     // 폰트가 커질수록 줄높이/문단 margin 오차가 커지므로 아래쪽만 더 보수적으로 확보.
     const fontExtra = Math.max(0, fs - 17);
     const top = preset.top + Math.round(fontExtra * 1.5);
-    const bottom = preset.bottom + Math.round(fontExtra * 5);
+    const bottom = preset.bottom + Math.round(fontExtra * 9);
     const side = preset.side;
 
     return {
@@ -573,7 +616,7 @@ function mobRawFits(raw, endHtml = '') {
     const box = getMobileMeasureBox();
     box.innerHTML = mobRawToHtmlForMeasure(raw, endHtml);
     // Safari에서 scrollHeight가 소수점/폰트 로딩 때문에 1~2px 흔들릴 수 있어 3px 여유만 둔다.
-    return box.scrollHeight <= box.clientHeight + 8;
+    return box.scrollHeight <= box.clientHeight + 3;
 }
 
 function protectMobileBlocks(content) {
@@ -1125,162 +1168,40 @@ function mobFindMusicLinkInCurrentChapter() {
     return null;
 }
 
-
-
-
-
-
-function mobFindMusicUrlInCurrentChapter() {
-    const curSlide = mobSlides[mobCurSlide];
-    if (!curSlide || curSlide.chapterIdx < 0) return '';
-
-    if (curSlide.musicUrl) return curSlide.musicUrl;
-
-    for (const slide of mobSlides) {
-        if (!slide || slide.chapterIdx !== curSlide.chapterIdx) continue;
-        if (slide.musicUrl) return slide.musicUrl;
-    }
-
-    return '';
-}
-
-function mobGetCurrentMusicLink() {
-    const el = mobGetCurrentSlideEl ? mobGetCurrentSlideEl() : null;
-    return el ? el.querySelector('.music-link') : null;
-}
-
-function mobGetMusicLinkByUrl(url) {
-    if (!url) return null;
-    const wanted = getMusicIdFromUrl(url);
-    const links = Array.from(document.querySelectorAll('#mob-strip .music-link'));
-    return links.find(link => getMusicIdFromUrl(getMusicUrlFromLink(link)) === wanted) || null;
-}
-
-function mobStopMusic() {
-    if (currentPlayingType === 'suno' && sunoAudioObject) {
-        try {
-            sunoAudioObject.pause();
-            sunoAudioObject.currentTime = 0;
-        } catch(e) {}
-        sunoAudioObject = null;
-    }
-
-    if (currentPlayingType === 'youtube' && ytAudioPlayer) {
-        try {
-            if (ytAudioPlayer.stopVideo) ytAudioPlayer.stopVideo();
-            else if (ytAudioPlayer.pauseVideo) ytAudioPlayer.pauseVideo();
-        } catch(e) {}
-    }
-
-    currentPlayingMusicId = null;
-    currentPlayingType = null;
-    currentPlayingBtn = null;
-    resetMusicButtons();
-    updateMasterPlayPauseIcon(false);
-}
-
-function mobPlayMusicUrl(url) {
-    if (!url) return false;
-
-    const musicId = getMusicIdFromUrl(url);
-    console.log('[mobPlayMusicUrl] url:', url, 'musicId:', musicId, 'currentPlayingMusicId:', currentPlayingMusicId);
-
-    // 이미 같은 곡 재생 중이면 스킵
-    if (currentPlayingMusicId && String(currentPlayingMusicId) === String(musicId)) {
-        console.log('[mobPlayMusicUrl] 같은 곡 — 스킵');
-        updateMasterPlayPauseIcon(true);
-        return true;
-    }
-
-    // 기존 재생 중지
-    if (currentPlayingMusicId) mobStopMusic();
-
-    // DOM에서 버튼 찾기 (없어도 직접 재생)
-    const link = mobGetMusicLinkByUrl(url) || mobGetCurrentMusicLink();
-
-    // Suno UUID 직접 재생
-    const sid = extractSunoId(url);
-    if (sid) {
-        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sid);
-        if (!isUUID) { showToast('Suno 짧은 링크는 지원 안 돼요.', 'error'); return false; }
-        if (ytAudioPlayer && ytAudioPlayer.pauseVideo) try { ytAudioPlayer.pauseVideo(); } catch(e) {}
-        sunoAudioObject = new Audio(`https://cdn1.suno.ai/${sid}.mp3`);
-        sunoAudioObject.volume = currentVolume / 100;
-        sunoAudioObject.play().catch(err => {
-            // 브라우저 자동재생 정책으로 차단된 경우 조용히 무시
-            console.warn('Suno autoplay blocked:', err.message);
-        });
-        sunoAudioObject.onended = () => {
-            currentPlayingMusicId = null; currentPlayingType = null;
-            currentPlayingBtn = null; updateMasterPlayPauseIcon(false);
-            if (link && mobIsValidButtonNode(link)) link.classList.remove('playing');
-        };
-        sunoAudioObject.onerror = (e) => {
-            console.warn('Suno audio error:', e);
-            sunoAudioObject = null;
-            currentPlayingMusicId = null; currentPlayingType = null;
-            currentPlayingBtn = null; updateMasterPlayPauseIcon(false);
-        };
-        currentPlayingMusicId = sid;
-        currentPlayingType = 'suno';
-        currentPlayingBtn = link;
-        if (link && mobIsValidButtonNode(link)) { link.classList.add('playing'); const di = link.querySelector('.fa-compact-disc'); if (di) di.classList.add('fa-spin'); }
-        updateMasterPlayPauseIcon(true);
-        return true;
-    }
-
-    // YouTube
-    const vid = extractVideoId(url);
-    if (vid && ytAudioPlayer && ytAudioPlayer.cueVideoById) {
-        ytAudioPlayer.cueVideoById(vid);
-        setTimeout(() => { try { ytAudioPlayer.setVolume(currentVolume); ytAudioPlayer.playVideo(); } catch(e) {} }, 150);
-        currentPlayingMusicId = vid;
-        currentPlayingType = 'youtube';
-        currentPlayingBtn = link;
-        if (link && mobIsValidButtonNode(link)) link.classList.add('playing');
-        updateMasterPlayPauseIcon(true);
-        return true;
-    }
-
-    // fallback: togglePlayMusic
-    if (link && mobIsValidButtonNode(link)) {
-        currentPlayingBtn = link;
-        togglePlayMusic(url, link);
-        return true;
-    }
-
-    return false;
-}
-
 function mobTryAutoPlayMusicOnPage() {
     if (!IS_MOBILE) return;
+
     const slide = mobSlides[mobCurSlide];
-    if (!slide) return;
-    console.log('[autoplay] slide:', mobCurSlide, 'musicUrl:', slide.musicUrl, 'hasMusicBlock:', slide.hasMusicBlock, 'currentPlayingMusicId:', currentPlayingMusicId);
-    const url = slide.musicUrl;
-    if (url) {
-        mobPlayMusicUrl(url);
+    if (!slide || !slide.musicUrl) return;
+
+    const link = mobGetCurrentSlideEl() ? mobGetCurrentSlideEl().querySelector('.music-link') : null;
+    const musicId = getMusicIdFromUrl(slide.musicUrl);
+
+    if (currentPlayingMusicId && String(currentPlayingMusicId) === String(musicId)) {
+        if (link) {
+            currentPlayingBtn = link;
+            link.classList.add('playing');
+        }
+        updateMasterPlayPauseIcon(true);
         return;
     }
-    if (slide.hasMusicBlock) {
-        const slides = document.querySelectorAll('.mob-slide');
-        const el = slides[mobCurSlide];
-        if (el) {
-            const ml = el.querySelector('.music-link');
-            if (ml) {
-                const dataUrl = ml.getAttribute('data-music-url') || ml.getAttribute('onclick');
-                // onclick에서 URL 추출
-                const m = (ml.getAttribute('onclick') || '').match(/togglePlayMusic\('(.*?)'/);
-                if (m) mobPlayMusicUrl(m[1]);
-            }
-        }
+
+    if (link) {
+        togglePlayMusic(slide.musicUrl, link);
     }
 }
 
 function mobQueueAutoPlayMusic() {
     if (!IS_MOBILE) return;
-    // 슬라이드 애니메이션(0.22s) 후 자동재생 — 클릭 억제와 무관
-    setTimeout(mobTryAutoPlayMusicOnPage, 350);
+
+    setTimeout(() => {
+        if (Date.now() < mobSuppressClickUntil) {
+            setTimeout(mobTryAutoPlayMusicOnPage, 220);
+            return;
+        }
+
+        mobTryAutoPlayMusicOnPage();
+    }, 120);
 }
 
 function mobSetupEvents() {
@@ -1340,7 +1261,6 @@ function mobSetupEvents() {
 
         const dx = e.clientX - startX;
         const dy = e.clientY - startY;
-
         prevX = lastX;
         prevMoveTime = lastMoveTime;
         lastX = e.clientX;
@@ -1355,29 +1275,29 @@ function mobSetupEvents() {
                 snapToCurrent(true);
                 return;
             }
-
             dragging = true;
         }
 
-        if (!dragging) return;
+        if (dragging) {
+            e.preventDefault();
 
-        e.preventDefault();
+            let limitedDx = Math.max(-mobSlideW * 0.95, Math.min(mobSlideW * 0.95, dx));
 
-        let limitedDx = Math.max(-mobSlideW * 0.95, Math.min(mobSlideW * 0.95, dx));
+            // 회차 마지막 페이지에서 다음 화 방향으로 밀 때는
+            // 다음 페이지가 보이지 않도록 둔탁한 벽에 막히는 느낌만 준다.
+            if (dx < 0 && mobIsLastPageOfChapter(mobCurSlide)) {
+                limitedDx = Math.max(-mobSlideW * 0.10, dx * 0.16);
+            }
 
-        // 회차 경계에서는 다음/이전 화가 미리 보이지 않도록 약한 저항만 준다.
-        if (dx < 0 && typeof mobIsLastPageOfChapter === 'function' && mobIsLastPageOfChapter(mobCurSlide)) {
-            limitedDx = Math.max(-mobSlideW * 0.10, dx * 0.16);
-        } else if (dx > 0 && typeof mobIsFirstPageOfChapter === 'function' && mobIsFirstPageOfChapter(mobCurSlide)) {
-            limitedDx = Math.min(mobSlideW * 0.10, dx * 0.16);
+            strip.style.transform = `translate3d(${-mobCurSlide * mobSlideW + limitedDx}px,0,0)`;
         }
-
-        strip.style.transform = `translate3d(${-mobCurSlide * mobSlideW + limitedDx}px,0,0)`;
     }, { passive: false });
 
     strip.addEventListener('pointerup', e => {
         if (pointerId !== e.pointerId) return;
 
+        // iOS Safari에서는 pointerup 시점의 clientX가 마지막 pointermove 값과 다르게 잡혀
+        // 손을 뗐을 때 원위치로 복귀하는 경우가 있다. 그래서 마지막 move 좌표를 기준으로 판정한다.
         const dx = lastX - startX;
         const dy = e.clientY - startY;
         const dist = Math.hypot(dx, dy);
@@ -1396,19 +1316,25 @@ function mobSetupEvents() {
 
         if (!wasDragging) {
             snapToCurrent(true);
-            // 탭 판정은 click 이벤트에서 단독 처리 (여기서 호출 시 click과 중복됨)
+            if (dist < 14 && !isControlTarget(e.target)) {
+                mobSuppressClickUntil = Date.now() + 450;
+                mobToggleUI();
+            }
             return;
         }
 
+        // 한 번의 제스처에서 목표 인덱스를 먼저 고정한다.
+        // mobCurSlide를 기준으로 두 번 계산하지 않게 해서 2페이지 점프를 막는다.
         if (mobSwipeLock) {
             snapToCurrent(true);
             return;
         }
-
         mobSwipeLock = true;
         mobSuppressClickUntil = Date.now() + 650;
         setTimeout(() => { mobSwipeLock = false; }, 420);
 
+        // 스와이프 판정은 거리 + 마지막 속도를 같이 본다.
+        // 기존 17% 기준은 모바일에서 너무 빡세서, 강하게 당겨도 복귀하는 문제가 있었다.
         const threshold = Math.min(58, Math.max(28, mobSlideW * 0.085));
         const fastSwipe = Math.abs(vx) > 0.28 && Math.abs(dx) > 14;
         let targetIdx = mobCurSlide;
@@ -1419,53 +1345,17 @@ function mobSetupEvents() {
             targetIdx = mobCurSlide - 1;
         }
 
-        if (targetIdx !== mobCurSlide) {
-            if (
-                targetIdx > mobCurSlide &&
-                typeof mobIsLastPageOfChapter === 'function' &&
-                mobIsLastPageOfChapter(mobCurSlide)
-            ) {
-                snapToCurrent(true);
-
-                if (typeof mobShowNextChapterPopup === 'function') {
-                    mobShowNextChapterPopup(targetIdx);
-                } else {
-                    mobGoToSlide(targetIdx, true);
-                }
-
-                return;
-            }
-
-            if (
-                targetIdx < mobCurSlide &&
-                typeof mobIsFirstPageOfChapter === 'function' &&
-                mobIsFirstPageOfChapter(mobCurSlide)
-            ) {
-                snapToCurrent(true);
-
-                if (typeof mobShowPrevChapterPopup === 'function') {
-                    mobShowPrevChapterPopup(targetIdx);
-                } else {
-                    mobGoToSlide(targetIdx, true);
-                }
-
-                return;
-            }
+        if (
+            targetIdx !== mobCurSlide &&
+            targetIdx > mobCurSlide &&
+            mobIsLastPageOfChapter(mobCurSlide)
+        ) {
+            snapToCurrent(true);
+            mobShowNextChapterPopup(targetIdx);
+            return;
         }
 
         mobGoToSlide(targetIdx, true);
-        // 회차가 바뀔 때만 음악 처리 (같은 회차 내 이동 시 음악 유지)
-        const prevSl = mobSlides[mobCurSlide - (targetIdx > mobCurSlide ? 0 : 0)];
-        const nextSl = mobSlides[targetIdx];
-        const chCh = prevSl && nextSl && prevSl.chapterIdx !== nextSl.chapterIdx;
-        if (chCh && nextSl && nextSl.hasMusicBlock) {
-            const slides = document.querySelectorAll('.mob-slide');
-            const el = slides[targetIdx];
-            if (el) {
-                const ml = el.querySelector('.music-link');
-                if (ml) { mobStopMusic(); ml.click(); }
-            }
-        }
     }, { passive: true });
 
     strip.addEventListener('pointercancel', e => {
@@ -1474,48 +1364,31 @@ function mobSetupEvents() {
         snapToCurrent(true);
     }, { passive: true });
 
-    // 포인터가 요소 밖으로 나가도 상태 초기화
-    strip.addEventListener('pointerleave', e => {
-        if (pointerId !== e.pointerId) return;
-        if (dragging) {
-            finishPointer();
-            snapToCurrent(true);
+    // 일부 iOS Safari는 pointerup 직후 합성 click을 만든다. 슬라이드 직후 click은 버린다.
+    reader.addEventListener('click', e => {
+        if (Date.now() < mobSuppressClickUntil) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
         }
-    }, { passive: true });
-
-    // 별도 readerClickBound 플래그로 reader click은 1회만 등록
-    if (!reader._clickBound) {
-        reader._clickBound = true;
-        reader.addEventListener('click', e => {
-            if (Date.now() < mobSuppressClickUntil) {
-                e.preventDefault();
-                e.stopPropagation();
-                return;
-            }
-            // UI 바, 버튼, 팝업 영역 클릭은 무시
-            if (isControlTarget(e.target)) return;
-            if (e.target.closest('#mob-toc-sheet, #mob-next-chapter-popup')) return;
-            // mob-reader 내부 어디든 탭하면 토글
-            mobToggleUI();
-        }, false);
-    }
+        if (isControlTarget(e.target)) return;
+        if (!e.target.closest('#mob-strip, .mob-slide, .mob-slide-text')) return;
+        mobToggleUI();
+    }, true);
 
     if (!mobResizeBound) {
         mobResizeBound = true;
-
         const resizeMobileReader = () => {
             mobSlideW = window.innerWidth;
             mobSlideH = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
-
+            applyMobilePageMetrics();
             document.querySelectorAll('.mob-slide').forEach(s => {
                 s.style.width = mobSlideW + 'px';
                 s.style.height = mobSlideH + 'px';
             });
-
             strip.style.transition = 'none';
             strip.style.transform = `translate3d(${-mobCurSlide * mobSlideW}px,0,0)`;
         };
-
         window.addEventListener('resize', resizeMobileReader);
         if (window.visualViewport) window.visualViewport.addEventListener('resize', resizeMobileReader);
     }
@@ -1527,15 +1400,8 @@ function mobGoToSlide(idx, animate = true) {
         mobCancelNextChapterPopup();
     }
 
-    const prevSlide = mobSlides[mobCurSlide];
-    const nextSlide = mobSlides[idx];
-    const chapterChanged = !!(prevSlide && nextSlide && prevSlide.chapterIdx !== nextSlide.chapterIdx);
-
-    // 회차가 바뀔 때만 음악 중지
-    if (IS_MOBILE && chapterChanged) {
-        mobStopMusic();
-    }
-
+    // 모바일 BGM은 페이지 이동마다 끊지 않는다.
+    // 새 페이지에 다른 [music]/[autoplay]가 있으면 아래 자동재생 로직에서 교체된다.
     mobCurSlide = idx;
 
     const strip = document.getElementById('mob-strip');
@@ -1547,7 +1413,8 @@ function mobGoToSlide(idx, animate = true) {
     const slide = mobSlides[idx];
     mobUpdateUI(slide);
     if (slide.chapterIdx >= 0) saveBookmark(idx, 0);
-    // 음악 재생은 pointerup(사용자 제스처)에서 처리
+
+    mobQueueAutoPlayMusic();
 }
 
 function mobUpdateUI(slide) {
@@ -1619,27 +1486,11 @@ function mobToggleUI() {
     document.getElementById('mob-bottombar').classList.toggle('visible', mobUIVisible);
 }
 
-function mobPlayOnSlide(idx) {
-    const s = mobSlides[idx];
-    if (!s || !s.hasMusicBlock) return;
-    const slides = document.querySelectorAll('.mob-slide');
-    const el = slides[idx];
-    if (!el) return;
-    const ml = el.querySelector('.music-link');
-    if (ml && !ml.classList.contains('playing')) {
-        mobStopMusic();
-        ml.click();
-    }
-}
-
 function mobPrevChapter() {
     const ci = mobSlides[mobCurSlide].chapterIdx;
     if (ci <= 0) { mobGoToSlide(0); return; }
     const target = mobChapMap[ci - 1];
-    if (target !== undefined) {
-        mobGoToSlide(target);
-        mobPlayOnSlide(target);
-    }
+    if (target !== undefined) mobGoToSlide(target);
 }
 
 function mobNextChapter() {
@@ -1647,10 +1498,7 @@ function mobNextChapter() {
     const next = ci + 1;
     if (next < bookState.chapters.length) {
         const target = mobChapMap[next];
-        if (target !== undefined) {
-            mobGoToSlide(target);
-            mobPlayOnSlide(target);
-        }
+        if (target !== undefined) mobGoToSlide(target);
     }
 }
 
@@ -2140,53 +1988,11 @@ function onYouTubeIframeAPIReady(){
 }
 function onPlayerStateChange(e){if(e.data===YT.PlayerState.ENDED)resetMusicButtons();}
 
-
-
-function mobIsValidButtonNode(btn) {
-    return !!(btn && btn.isConnected && typeof btn.querySelector === 'function' && btn.classList);
-}
-
-function getSafeCurrentPlayingBtn() {
-    if (mobIsValidButtonNode(currentPlayingBtn)) {
-        return currentPlayingBtn;
-    }
-
-    currentPlayingBtn = null;
-    return null;
-}
-
-function safeSetPlayingButtonState(isPlaying) {
-    const btn = getSafeCurrentPlayingBtn();
-    if (!btn) return;
-
-    btn.classList.toggle('playing', !!isPlaying);
-
-    const icon = btn.querySelector('.fa-compact-disc');
-    if (icon) {
-        icon.classList.toggle('fa-spin', !!isPlaying);
-    }
-}
-
 function resetMusicButtons(){
-    // 오디오 객체 안전하게 정리
-    if (sunoAudioObject) {
-        try { sunoAudioObject.pause(); sunoAudioObject.src = ''; } catch(e) {}
-        sunoAudioObject = null;
-    }
-    if (ytAudioPlayer) {
-        try { ytAudioPlayer.pauseVideo(); } catch(e) {}
-    }
-    currentPlayingMusicId = null;
-    currentPlayingBtn = null;
-    currentPlayingType = null;
+    document.querySelectorAll('.music-link').forEach(btn=>{if(btn)btn.classList.remove('playing');const i=btn.querySelector('.fa-compact-disc');if(i)i.classList.remove('fa-spin');});
+    if(sunoAudioObject){sunoAudioObject.pause();sunoAudioObject=null;}
+    currentPlayingMusicId=null;currentPlayingBtn=null;currentPlayingType=null;
     updateMasterPlayPauseIcon(false);
-
-    document.querySelectorAll('.music-link.playing').forEach(btn => {
-        if (!mobIsValidButtonNode(btn)) return;
-        btn.classList.remove('playing');
-        const icon = btn.querySelector('.fa-compact-disc');
-        if (icon) icon.classList.remove('fa-spin');
-    });
 }
 
 function changeVolume(val){
@@ -2218,45 +2024,37 @@ function updateMasterPlayPauseIcon(playing){
 }
 function toggleMasterPlayPause(){
     if(!currentPlayingMusicId){
-        if (IS_MOBILE) {
-            const url = mobFindMusicUrlInCurrentChapter();
+        let ml = null;
 
-            if (url && mobPlayMusicUrl(url)) {
+        if (IS_MOBILE) {
+            ml = mobFindMusicLinkInCurrentChapter();
+
+            if (ml) {
+                const url = getMusicUrlFromLink(ml);
+                if (url) {
+                    togglePlayMusic(url, ml);
+                    return;
+                }
+            }
+        } else {
+            ml = document.querySelector(`#p${cur} .music-link`);
+
+            if (ml) {
+                ml.click();
                 return;
             }
-
-            showToast('현재 화에 음악이 없습니다.','info');
-            return;
         }
 
-        const ml=document.querySelector(`#p${cur} .music-link`);
-        if(ml)ml.click();else showToast('현재 화에 음악이 없습니다.','info');
+        showToast('현재 화에 음악이 없습니다.','info');
         return;
     }
-
     if(currentPlayingType==='suno'&&sunoAudioObject){
-        if(sunoAudioObject.paused){
-            sunoAudioObject.volume=currentVolume/100;
-            sunoAudioObject.play();
-            safeSetPlayingButtonState(true);
-            updateMasterPlayPauseIcon(true);
-        } else {
-            sunoAudioObject.pause();
-            safeSetPlayingButtonState(false);
-            updateMasterPlayPauseIcon(false);
-        }
+        if(sunoAudioObject.paused){sunoAudioObject.volume=currentVolume/100;sunoAudioObject.play();if(currentPlayingBtn)currentPlayingBtn.classList.add('playing');updateMasterPlayPauseIcon(true);}
+        else{sunoAudioObject.pause();if(currentPlayingBtn)currentPlayingBtn.classList.remove('playing');updateMasterPlayPauseIcon(false);}
     }else if(currentPlayingType==='youtube'&&ytAudioPlayer){
         const s=ytAudioPlayer.getPlayerState();
-        if(s===YT.PlayerState.PLAYING){
-            ytAudioPlayer.pauseVideo();
-            safeSetPlayingButtonState(false);
-            updateMasterPlayPauseIcon(false);
-        } else {
-            ytAudioPlayer.setVolume(currentVolume);
-            ytAudioPlayer.playVideo();
-            safeSetPlayingButtonState(true);
-            updateMasterPlayPauseIcon(true);
-        }
+        if(s===YT.PlayerState.PLAYING){ytAudioPlayer.pauseVideo();if(currentPlayingBtn)currentPlayingBtn.classList.remove('playing');updateMasterPlayPauseIcon(false);}
+        else{ytAudioPlayer.setVolume(currentVolume);ytAudioPlayer.playVideo();if(currentPlayingBtn)currentPlayingBtn.classList.add('playing');updateMasterPlayPauseIcon(true);}
     }
 }
 function togglePlayMusic(url,btn){
@@ -2264,13 +2062,13 @@ function togglePlayMusic(url,btn){
     if(!vid&&!sid){showToast('지원하지 않는 링크입니다.','error');return;}
     const isSuno=!!sid,tid=isSuno?sid:vid;
     if(currentPlayingMusicId===tid){
-        if(isSuno&&sunoAudioObject){if(sunoAudioObject.paused){sunoAudioObject.play();if(btn)if (btn && btn.isConnected) if (mobIsValidButtonNode(btn)) btn.classList.add('playing');updateMasterPlayPauseIcon(true);}else{sunoAudioObject.pause();if(btn)if (btn && btn.isConnected) if (mobIsValidButtonNode(btn)) btn.classList.remove('playing');updateMasterPlayPauseIcon(false);}}
-        else if(ytAudioPlayer){const s=ytAudioPlayer.getPlayerState();if(s===YT.PlayerState.PLAYING){ytAudioPlayer.pauseVideo();if(btn)if (btn && btn.isConnected) if (mobIsValidButtonNode(btn)) btn.classList.remove('playing');updateMasterPlayPauseIcon(false);}else{ytAudioPlayer.playVideo();if(btn)if (btn && btn.isConnected) if (mobIsValidButtonNode(btn)) btn.classList.add('playing');updateMasterPlayPauseIcon(true);}}
+        if(isSuno&&sunoAudioObject){if(sunoAudioObject.paused){sunoAudioObject.play();if(btn)btn.classList.add('playing');updateMasterPlayPauseIcon(true);}else{sunoAudioObject.pause();if(btn)btn.classList.remove('playing');updateMasterPlayPauseIcon(false);}}
+        else if(ytAudioPlayer){const s=ytAudioPlayer.getPlayerState();if(s===YT.PlayerState.PLAYING){ytAudioPlayer.pauseVideo();if(btn)btn.classList.remove('playing');updateMasterPlayPauseIcon(false);}else{ytAudioPlayer.playVideo();if(btn)btn.classList.add('playing');updateMasterPlayPauseIcon(true);}}
         return;
     }
     resetMusicButtons();
-    currentPlayingMusicId=tid;currentPlayingBtn=mobIsValidButtonNode(btn)?btn:null;currentPlayingType=isSuno?'suno':'youtube';
-    if(btn)if (btn && btn.isConnected) if (mobIsValidButtonNode(btn)) btn.classList.add('playing');const di=mobIsValidButtonNode(btn)?btn.querySelector('.fa-compact-disc'):null;if(di)di.classList.add('fa-spin');updateMasterPlayPauseIcon(true);
+    currentPlayingMusicId=tid;currentPlayingBtn=btn;currentPlayingType=isSuno?'suno':'youtube';
+    if(btn)btn.classList.add('playing');const di=btn?btn.querySelector('.fa-compact-disc'):null;if(di)di.classList.add('fa-spin');updateMasterPlayPauseIcon(true);
     if(isSuno){
         const isUUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sid);
         if(!isUUID){
@@ -2302,13 +2100,6 @@ function mobIsLastPageOfChapter(idx) {
     return slide.pageInChapter === slide.totalInChapter - 1 && slide.chapterIdx < bookState.chapters.length - 1;
 }
 
-function mobIsFirstPageOfChapter(idx) {
-    const slide = mobSlides[idx];
-    if (!slide || slide.chapterIdx <= 0) return false;
-    return slide.pageInChapter === 0;
-}
-
-
 function mobCancelNextChapterPopup() {
     if (mobNextChapterCountdown) {
         clearInterval(mobNextChapterCountdown);
@@ -2318,7 +2109,7 @@ function mobCancelNextChapterPopup() {
     if (popup) popup.classList.remove('show');
 }
 
-function mobShowChapterTransitionPopup(targetIdx, direction) {
+function mobShowNextChapterPopup(targetIdx) {
     mobCancelNextChapterPopup();
 
     mobNextChapterRemain = NEXT_CHAPTER_DELAY_SEC;
@@ -2328,29 +2119,20 @@ function mobShowChapterTransitionPopup(targetIdx, direction) {
     if (!popup) {
         popup = document.createElement('div');
         popup.id = 'mob-next-chapter-popup';
+
+        popup.innerHTML = `
+            <div class="mob-next-chapter-card">
+                <div class="mob-next-chapter-title">해당 회차의 마지막 페이지입니다</div>
+                <div class="mob-next-chapter-desc">
+                    <span id="mob-next-chapter-count">3</span>초 후 다음 회차로 이동합니다.
+                </div>
+                <button class="mob-next-chapter-cancel" onclick="mobCancelNextChapterPopup()">취소</button>
+            </div>
+        `;
+
         document.body.appendChild(popup);
     }
 
-    const title = direction === 'prev'
-        ? '이전 화로 돌아갑니다'
-        : '해당 회차의 마지막 페이지입니다';
-
-    const desc = direction === 'prev'
-        ? '<span id="mob-next-chapter-count">3</span>초 후 이전 회차로 이동합니다.'
-        : '<span id="mob-next-chapter-count">3</span>초 후 다음 회차로 이동합니다.';
-
-    popup.innerHTML = `
-        <div class="mob-next-chapter-card">
-            <div class="mob-next-chapter-title">${title}</div>
-            <div class="mob-next-chapter-desc">${desc}</div>
-            <div class="mob-next-chapter-actions">
-                <button class="mob-next-chapter-confirm" onclick="mobConfirmChapterTransition()">확인</button>
-                <button class="mob-next-chapter-cancel" onclick="mobCancelNextChapterPopup()">취소</button>
-            </div>
-        </div>
-    `;
-
-    popup.dataset.targetIdx = String(targetIdx);
     popup.classList.add('show');
 
     const countEl = document.getElementById('mob-next-chapter-count');
@@ -2362,36 +2144,8 @@ function mobShowChapterTransitionPopup(targetIdx, direction) {
         if (countEl) countEl.textContent = mobNextChapterRemain;
 
         if (mobNextChapterRemain <= 0) {
-            mobConfirmChapterTransition();
+            mobCancelNextChapterPopup();
+            mobGoToSlide(targetIdx, true);
         }
     }, 1000);
 }
-
-function mobConfirmChapterTransition() {
-    const popup = document.getElementById('mob-next-chapter-popup');
-    if (!popup) return;
-
-    const targetIdx = parseInt(popup.dataset.targetIdx || '-1', 10);
-    mobCancelNextChapterPopup();
-
-    if (!Number.isNaN(targetIdx) && targetIdx >= 0) {
-        const curSlide = mobSlides[mobCurSlide];
-        const nextSlide = mobSlides[targetIdx];
-
-        if (curSlide && nextSlide && curSlide.chapterIdx !== nextSlide.chapterIdx && typeof mobStopMusic === 'function') {
-            mobStopMusic();
-        }
-
-        mobGoToSlide(targetIdx, true);
-    }
-}
-
-function mobShowNextChapterPopup(targetIdx) {
-    mobShowChapterTransitionPopup(targetIdx, 'next');
-}
-
-function mobShowPrevChapterPopup(targetIdx) {
-    mobShowChapterTransitionPopup(targetIdx, 'prev');
-}
-
-
