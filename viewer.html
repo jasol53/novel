@@ -157,15 +157,20 @@
             pointer-events: none;
         }
 
-        /* column 컨테이너 — 전체 텍스트를 2단으로 흘림 */
-        #spread-columns {
+        /* column 컨테이너 래퍼 — 화살표 제외 영역, overflow clip */
+        #spread-col-wrap {
             position: absolute;
-            /* 화살표 너비(32px) + 내부 여백(60px) */
-            left: 92px; right: 92px;
+            left: 32px; right: 32px;
             top: 0; bottom: 0;
+            overflow: hidden;
+        }
+
+        /* column 컨테이너 — 전체 텍스트를 2단으로 흘림, 실제 너비는 JS로 설정 */
+        #spread-columns {
+            height: 100%;
             column-count: 2;
             column-gap: 0;
-            overflow: hidden;
+            /* 너비와 transform은 JS에서 설정 */
         }
 
         /* 각 column 안에 패딩을 주는 래퍼 */
@@ -365,7 +370,9 @@
     <div id="spread-viewer">
         <button class="spread-arrow" id="arrow-prev" onclick="spreadGo(-1)">‹</button>
         <div id="spread-divider"></div>
-        <div id="spread-columns"></div>
+        <div id="spread-col-wrap">
+            <div id="spread-columns"></div>
+        </div>
         <button class="spread-arrow" id="arrow-next" onclick="spreadGo(1)">›</button>
         <div id="spread-progress"><div id="spread-progress-fill"></div></div>
     </div>
@@ -563,16 +570,9 @@ function buildSpreadView() {
 
     const container = document.getElementById('spread-columns');
     const stage = document.getElementById('spread-viewer');
-
-    // 컨테이너 가로 = 뷰어 가로 (화살표 제외 영역)
-    // 2단이므로 전체 컨텐츠 너비 = 스프레드 수 * 컨테이너 너비
-    // 높이는 뷰어 높이와 동일
-
-    const stageW = stage.clientWidth;
-    const stageH = stage.clientHeight;
     const arrowW = 32;
-    const colAreaW = stageW - arrowW * 2; // 화살표 제외
-    const colAreaH = stageH;
+    const colAreaW = stage.clientWidth - arrowW * 2;
+    const colAreaH = stage.clientHeight;
 
     // 챕터 헤더 + 산문 HTML
     const chapterHtml = `
@@ -588,23 +588,24 @@ function buildSpreadView() {
         </div>
     `;
 
-    // 일단 1개 스프레드(= colAreaW) 폭으로 렌더링해서 총 높이 측정
+    // 1. 일단 colAreaW 너비로 렌더링 (overflow visible로 총 너비 측정)
+    container.style.transition = 'none';
+    container.style.transform = 'translateX(0)';
     container.style.width = colAreaW + 'px';
     container.style.height = colAreaH + 'px';
     container.style.columnCount = '2';
     container.style.columnGap = '0px';
-    container.style.transform = 'translateX(0)';
     container.innerHTML = chapterHtml;
 
-    // 실제 렌더 후 총 스프레드 수 계산
-    // columns overflow 는 scrollWidth 로 잡힌다
-    // 잠깐 overflow:auto 로 바꿔서 측정
-    container.style.overflow = 'visible';
+    // 2. scrollWidth로 총 column 너비 측정
     const totalColWidth = container.scrollWidth;
-    container.style.overflow = 'hidden';
 
-    // 스프레드 수 = ceil(총너비 / colAreaW)
-    spreadTotalSpreads = Math.max(1, Math.ceil(totalColWidth / colAreaW));
+    // 3. 스프레드 수 계산
+    spreadTotalSpreads = Math.max(1, Math.round(totalColWidth / colAreaW));
+
+    // 4. 컨테이너를 전체 너비로 펼침 (스프레드 수 × colAreaW)
+    container.style.width = (spreadTotalSpreads * colAreaW) + 'px';
+
     spreadCurSpread = 0;
     renderSpreadPosition();
 }
