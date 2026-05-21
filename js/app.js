@@ -557,9 +557,9 @@ function getMobilePageMetrics() {
     // 실제 페이지 수는 아래의 DOM 높이 측정으로 결정하므로, 폰트 크기 변경에도 자연스럽게 대응된다.
     let preset;
     if (vh <= 650) preset = { top: 30, bottom: 220, side: 22 };
-    else if (vh <= 720) preset = { top: 32, bottom: 230, side: 22 };
-    else if (vh <= 800) preset = { top: 34, bottom: 240, side: 24 };
-    else if (vh <= 880) preset = { top: 36, bottom: 270, side: 24 };
+    else if (vh <= 720) preset = { top: 32, bottom: 190, side: 22 };
+    else if (vh <= 800) preset = { top: 34, bottom: 200, side: 24 };
+    else if (vh <= 880) preset = { top: 36, bottom: 230, side: 24 };
     else preset = { top: 40, bottom: 280, side: 26 };
 
     // 폰트가 커질수록 줄높이/문단 margin 오차가 커지므로 아래쪽만 더 보수적으로 확보.
