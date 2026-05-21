@@ -173,10 +173,16 @@
             /* 너비와 transform은 JS에서 설정 */
         }
 
-        /* 각 column 안에 패딩을 주는 래퍼 */
-        #spread-columns .col-pad {
-            padding: 52px 120px;
-            display: block;
+        /* column 자체에 패딩 — column-rule로 좌우 여백 */
+        #spread-columns {
+            padding: 52px 0 52px 0;
+            column-rule: none;
+        }
+        /* 각 단락/블록에 좌우 여백 */
+        #spread-columns .prose,
+        #spread-columns .ch-header-spread {
+            padding-left: 120px;
+            padding-right: 120px;
         }
 
         /* column 내부 prose */
@@ -575,15 +581,13 @@ async function buildSpreadView() {
 
     // 챕터 헤더 + 산문 HTML
     const chapterHtml = `
-        <div class="col-pad">
-            <div class="ch-header-spread">
-                <div class="ch-number">제 ${currentChIdx + 1}화</div>
-                <div class="ch-title">${ch.title}</div>
-            </div>
-            <div class="prose" style="font-size:${PROSE_FONT}px;line-height:${PROSE_LH};">
-                ${formatProse(ch.content)}
-                <div class="chapter-end-marker">— 제 ${currentChIdx + 1}화 끝 —</div>
-            </div>
+        <div class="ch-header-spread">
+            <div class="ch-number">제 ${currentChIdx + 1}화</div>
+            <div class="ch-title">${ch.title}</div>
+        </div>
+        <div class="prose" style="font-size:${PROSE_FONT}px;line-height:${PROSE_LH};">
+            ${formatProse(ch.content)}
+            <div class="chapter-end-marker">— 제 ${currentChIdx + 1}화 끝 —</div>
         </div>
     `;
 
