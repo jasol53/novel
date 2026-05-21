@@ -564,7 +564,7 @@ function toggleViewMode() {
 const PROSE_FONT = 17;
 const PROSE_LH = 1.9;
 
-function buildSpreadView() {
+async function buildSpreadView() {
     const ch = bookData?.chapters[currentChIdx];
     if (!ch) return;
 
@@ -597,14 +597,15 @@ function buildSpreadView() {
     container.style.columnGap = '0px';
     container.innerHTML = chapterHtml;
 
-    // 2. scrollWidth로 총 column 너비 측정
+    // 2. scrollWidth로 총 column 너비 측정 (overflow:visible 상태에서)
+    container.style.overflow = 'visible';
+    // 한 프레임 후 측정 (렌더 완료 대기)
+    await new Promise(r => requestAnimationFrame(r));
     const totalColWidth = container.scrollWidth;
+    container.style.overflow = '';
 
-    // 3. 스프레드 수 계산
-    spreadTotalSpreads = Math.max(1, Math.round(totalColWidth / colAreaW));
-
-    // 4. 컨테이너를 전체 너비로 펼침 (스프레드 수 × colAreaW)
-    container.style.width = (spreadTotalSpreads * colAreaW) + 'px';
+    // 3. 스프레드 수 계산 — 너비는 colAreaW 고정, overflow로 흘려서 wrap이 클리핑
+    spreadTotalSpreads = Math.max(1, Math.ceil(totalColWidth / colAreaW));
 
     spreadCurSpread = 0;
     renderSpreadPosition();
