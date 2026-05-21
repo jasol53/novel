@@ -673,6 +673,8 @@
 <div id="mob-reader">
     <!-- 슬라이드 스트립 -->
     <div id="mob-strip"></div>
+    <button id="mob-prev-arrow" onclick="mobGoToSlide(mobCurSlide-1)" style="position:fixed;left:0;top:50%;transform:translateY(-50%);z-index:206;width:28px;height:60px;background:rgba(0,0,0,0.08);border:none;border-radius:0 8px 8px 0;font-size:14px;color:var(--ink3);cursor:pointer;">‹</button>
+    <button id="mob-next-arrow" onclick="mobGoToSlide(mobCurSlide+1)" style="position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:206;width:28px;height:60px;background:rgba(0,0,0,0.08);border:none;border-radius:8px 0 0 8px;font-size:14px;color:var(--ink3);cursor:pointer;">›</button>
 
     <!-- 상단 바: 목차 + 볼륨 + 화 정보 + 화 이동 -->
     <div id="mob-topbar">
