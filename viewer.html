@@ -144,8 +144,8 @@
         }
         .spread-arrow:hover { background: rgba(180,168,148,0.5); color: var(--accent); }
         .spread-arrow:disabled { opacity: 0.12; pointer-events: none; }
-        #arrow-prev { left: 0; border-radius: 0 6px 6px 0; }
-        #arrow-next { right: 0; border-radius: 6px 0 0 6px; }
+        #arrow-prev { border-radius: 0 6px 6px 0; }
+        #arrow-next { border-radius: 6px 0 0 6px; }
 
         /* 가운데 세로선 */
         #spread-divider {
@@ -611,7 +611,26 @@ async function buildSpreadView() {
     spreadTotalSpreads = Math.max(1, Math.ceil(totalColWidth / colAreaW));
 
     spreadCurSpread = 0;
+
+    // prose 위치 측정 후 화살표 배치
+    await new Promise(r => requestAnimationFrame(r));
+    positionArrows();
+
     renderSpreadPosition();
+}
+
+function positionArrows() {
+    const prose = document.querySelector('#spread-columns .prose');
+    if (!prose) return;
+    const rect = prose.getBoundingClientRect();
+    const stageW = document.getElementById('spread-viewer').clientWidth;
+    const arrowW = 32;
+    // 좌측 화살표: prose 왼쪽 끝 바로 왼쪽
+    const leftPos = Math.max(0, rect.left - arrowW);
+    // 우측 화살표: prose 오른쪽 끝 바로 오른쪽 (오른쪽에서의 거리)
+    const rightPos = Math.max(0, stageW - rect.right);
+    document.getElementById('arrow-prev').style.left = leftPos + 'px';
+    document.getElementById('arrow-next').style.right = rightPos + 'px';
 }
 
 function renderSpreadPosition() {
