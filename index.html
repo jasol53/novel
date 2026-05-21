@@ -2,859 +2,288 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>주남 유니버스 - 나만의 내러티브 E-Book</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>주남 유니버스</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;500;700&family=Noto+Sans+KR:wght@300;400;500;700&family=Song+Myung&display=swap" rel="stylesheet">
-    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
     <style>
-        :root {
-            --bg: #e8e0d0; --paper: #fdfaf3; --paper-back: #ede5d0;
-            --ink: #1e1b17; --ink2: #6b6259; --ink3: #a89f94;
-            --accent: #8b5e3c; --accent2: #c49a6c; --border: #ddd5c0;
-            --serif: 'Noto Serif KR', 'Song Myung', serif;
-            --sans: 'Noto Sans KR', sans-serif;
+        html, body {
+            min-height: 100vh;
+            background: var(--bg);
         }
-        body.reader-active { width:100%; height:100%; overflow:hidden !important; }
-        .topbar { flex-shrink:0; height:48px; background:var(--paper); border-bottom:0.5px solid var(--border); display:flex; align-items:center; justify-content:space-between; padding:0 16px; z-index:50; transition:background 0.3s,border-color 0.3s; position:relative; }
-        #page-top-scroll-progress { position:absolute; bottom:0; left:0; height:2px; background-color:var(--accent); width:0%; transition:width 0.1s ease-out; z-index:60; }
-        .tb-btn { background:none; border:none; cursor:pointer; color:var(--ink2); width:36px; height:36px; border-radius:8px; font-size:18px; display:flex; align-items:center; justify-content:center; transition:background 0.15s,color 0.15s; font-family:var(--sans); }
-        .tb-btn:hover { background:var(--border); color:var(--accent); }
-        .tb-title { font-family:var(--sans); font-size:13px; font-weight:500; color:var(--ink2); flex:1; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 8px; }
-        .volume-control-wrap { display:flex; align-items:center; gap:6px; padding:0 8px; color:var(--ink2); }
-        .volume-slider { -webkit-appearance:none; appearance:none; width:60px; height:4px; background:var(--border); border-radius:2px; outline:none; cursor:pointer; }
-        .volume-slider::-webkit-slider-thumb { -webkit-appearance:none; width:10px; height:10px; border-radius:50%; background:var(--accent); cursor:pointer; }
-        @media(max-width:640px){ .volume-slider{width:40px;} }
-        .body-row { flex:1; display:flex; overflow:hidden; position:relative; }
-        .sidebar { width:220px; flex-shrink:0; background:var(--paper); border-right:0.5px solid var(--border); display:flex; flex-direction:column; overflow:hidden; transition:width 0.28s ease,opacity 0.28s ease,background 0.3s,border-color 0.3s; }
-        .sidebar.collapsed { width:0; opacity:0; pointer-events:none; }
-        .sidebar-inner { width:220px; display:flex; flex-direction:column; height:100%; }
-        .sb-info { padding:22px 20px 18px; border-bottom:0.5px solid var(--border); }
-        .sb-book-title { font-size:14px; font-weight:700; line-height:1.4; margin-bottom:3px; font-family:var(--serif); color:var(--ink); }
-        .sb-book-author { font-family:var(--sans); font-size:11px; color:var(--ink3); }
-        .sb-section { font-family:var(--sans); font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--ink3); padding:14px 20px 6px; }
-        .sb-prog-track { height:3px; background:var(--border); border-radius:2px; margin:0 20px; overflow:hidden; }
-        .sb-prog-fill { height:100%; background:var(--accent); border-radius:2px; transition:width 0.15s; }
-        .sb-prog-text { font-family:var(--sans); font-size:11px; color:var(--ink3); margin:5px 20px 0; }
-        .sb-divider { height:0.5px; background:var(--border); margin:10px 0; }
-        .sb-toc { flex:1; overflow-y:auto; padding-bottom:8px; }
-        .toc-btn { display:block; width:100%; background:none; border:none; cursor:pointer; text-align:left; padding:9px 20px; border-left:2.5px solid transparent; transition:all 0.14s; line-height:1.5; }
-        .toc-btn:hover { background:var(--border); }
-        .toc-btn.active { border-left-color:var(--accent); }
-        .toc-name { font-family:var(--serif); font-size:13px; color:var(--ink2); display:block; }
-        .toc-btn.active .toc-name { color:var(--accent); font-weight:500; }
-        .toc-sub { font-family:var(--sans); font-size:11px; color:var(--ink3); display:block; margin-top:1px; }
-        .sb-font-row { padding:11px 20px; border-top:0.5px solid var(--border); display:flex; align-items:center; gap:8px; flex-shrink:0; }
-        .sb-font-label { font-family:var(--sans); font-size:11px; color:var(--ink3); flex:1; }
-        .font-btn { background:none; border:0.5px solid var(--border); border-radius:6px; width:28px; height:28px; cursor:pointer; color:var(--ink2); font-family:var(--sans); font-size:13px; display:flex; align-items:center; justify-content:center; transition:all 0.12s; }
-        .font-btn:hover { border-color:var(--accent); color:var(--accent); }
-        .font-val { font-family:var(--sans); font-size:12px; color:var(--ink); min-width:20px; text-align:center; }
-        .stage { flex:1; position:relative; overflow:hidden; background:var(--bg); }
-        .book-page { position:absolute; inset:0; background:var(--paper); overflow:hidden; }
-        .page-scroll { width:100%; height:100%; overflow-y:auto; overflow-x:hidden; padding:32px 28px 88px; -webkit-overflow-scrolling:touch; }
-        .pc-bottom { flex-shrink:0; height:52px; background:var(--paper); border-top:0.5px solid var(--border); display:flex; align-items:center; justify-content:space-between; padding:0 20px; }
-        .nav-btn { background:none; border:0.5px solid var(--border); border-radius:8px; cursor:pointer; font-family:var(--sans); font-size:13px; color:var(--ink2); padding:8px 16px; transition:all 0.15s; display:flex; align-items:center; gap:6px; }
-        .nav-btn:hover { border-color:var(--accent); color:var(--accent); }
-        .nav-btn:disabled { opacity:0.22; pointer-events:none; }
-        .pc-dots { display:flex; gap:7px; align-items:center; }
-        .pc-dot { width:7px; height:7px; border-radius:50%; background:var(--border); border:none; cursor:pointer; padding:0; transition:all 0.2s; }
-        .pc-dot.active { background:var(--accent); transform:scale(1.3); }
-        .mob-bottom { flex-shrink:0; height:52px; background:var(--paper); border-top:0.5px solid var(--border); display:flex; align-items:center; justify-content:space-between; padding:0 20px; }
-        .mob-nav { background:none; border:0.5px solid var(--border); border-radius:8px; cursor:pointer; font-family:var(--sans); font-size:13px; color:var(--ink2); padding:8px 14px; transition:all 0.15s; }
-        .mob-nav:disabled { opacity:0.22; pointer-events:none; }
-        .mob-dots { display:flex; gap:7px; align-items:center; }
-        .mob-dot { width:7px; height:7px; border-radius:50%; background:var(--border); border:none; cursor:pointer; padding:0; transition:all 0.2s; }
-        .mob-dot.active { background:var(--accent); transform:scale(1.3); }
-        .menu-overlay { position:fixed; inset:0; z-index:100; background:rgba(0,0,0,0.48); display:none; align-items:flex-end; }
-        .menu-overlay.open { display:flex; }
-        .menu-sheet { width:100%; background:var(--paper); border-radius:20px 20px 0 0; padding:18px 0 36px; }
-        .menu-handle { width:36px; height:4px; background:var(--border); border-radius:2px; margin:0 auto 20px; }
-        .menu-section { font-family:var(--sans); font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink3); padding:0 24px; margin-bottom:10px; }
-        .menu-item { display:block; width:100%; background:none; border:none; cursor:pointer; text-align:left; font-family:var(--serif); font-size:15px; color:var(--ink2); padding:12px 24px; transition:background 0.12s; }
-        .menu-item:hover,.menu-item:active { background:var(--border); }
-        .menu-item.active { color:var(--accent); font-weight:500; }
-        .menu-sep { height:0.5px; background:var(--border); margin:8px 0; }
-        .menu-font-row { display:flex; align-items:center; gap:12px; padding:10px 24px; }
-        .mfc-btn { background:none; border:0.5px solid var(--border); border-radius:8px; width:34px; height:34px; cursor:pointer; color:var(--ink2); font-family:var(--sans); font-size:15px; display:flex; align-items:center; justify-content:center; }
-        .mfc-val { font-family:var(--sans); font-size:13px; color:var(--ink); min-width:24px; text-align:center; }
-        .cover-inner { display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:60px 40px; min-height:100%; }
-        .cover-ornament { font-size:42px; color:var(--accent2); letter-spacing:6px; margin-bottom:40px; opacity:0.7; }
-        .cover-title { font-size:42px; font-weight:700; line-height:1.3; margin-bottom:24px; font-family:var(--serif); color:var(--ink); }
-        .cover-sub { font-size:15px; color:var(--ink2); font-weight:400; margin-bottom:48px; letter-spacing:0.02em; line-height:1.8; font-family:var(--serif); max-width:420px; white-space:pre-wrap; }
-        .cover-divider { width:60px; height:1.5px; background:var(--accent2); margin:0 auto 32px; }
-        .cover-author { font-family:var(--sans); font-size:15px; color:var(--ink2); letter-spacing:0.08em; }
-        .cover-art-wrapper { border-radius:16px; overflow:hidden; box-shadow:0 20px 40px -10px rgba(0,0,0,0.25),0 12px 20px -8px rgba(0,0,0,0.2); border:6px solid var(--paper); outline:1px solid var(--border); position:relative; background:var(--paper-back); margin-bottom:40px; transition:all 0.4s ease; }
-        .cover-art-img { width:100%; height:100%; object-fit:cover; transition:transform 0.6s ease; }
-        .cover-art-wrapper:hover { transform:translateY(-5px); }
-        .cover-art-wrapper:hover .cover-art-img { transform:scale(1.05); }
-        .cover-ratio-webnovel { width:320px; height:512px; }
-        .cover-ratio-tablet { width:360px; height:480px; }
-        .cover-ratio-standard { width:340px; height:480px; }
-        @media(max-width:640px){
-            .cover-ratio-webnovel{width:240px;height:384px;}
-            .cover-ratio-tablet{width:260px;height:346px;}
-            .cover-ratio-standard{width:250px;height:353px;}
-            .cover-title{font-size:32px;}
-        }
-        .swipe-hint { margin-top:40px; font-family:var(--sans); font-size:11px; color:var(--ink3); letter-spacing:0.06em; animation:pulse 2s ease-in-out infinite; }
-        @keyframes pulse{0%,100%{opacity:0.3;}50%{opacity:1;}}
-        .ch-header { text-align:center; margin-bottom:40px; padding-bottom:32px; border-bottom:0.5px solid var(--border); }
-        .ch-number { font-family:var(--sans); font-size:10px; letter-spacing:0.18em; text-transform:uppercase; color:var(--accent); margin-bottom:14px; }
-        .ch-title { font-size:22px; font-weight:700; line-height:1.35; margin-bottom:10px; font-family:var(--serif); color:var(--ink); }
-        .ch-dot { margin-top:18px; color:var(--accent2); font-size:16px; letter-spacing:8px; }
-        .prose { font-size:16px; line-height:2.05; color:var(--ink); word-break:keep-all; font-family:var(--serif); transition:font-size 0.2s; }
-        .prose p { margin-bottom:1.5em; text-indent:1em; text-align:justify; }
-        .prose p:first-child { text-indent:0; }
-        .prose .scene-asterisk { text-align:left; text-indent:1em; color:var(--accent); font-size:14px; letter-spacing:8px; margin:2.2em 0; font-family:var(--serif); }
-        .prose .scene-dots { display:flex !important; flex-direction:column !important; align-items:center !important; width:20px !important; margin:3.2em 0 3.2em 1.1em !important; gap:6px !important; color:var(--accent) !important; font-weight:bold !important; text-indent:0 !important; padding:0 !important; }
-        .prose .scene-long-line { margin:2.2em 0; padding-left:1em; width:70%; max-width:500px; height:1px; background:linear-gradient(to right,var(--accent),transparent); opacity:0.5; }
-        .prose .scene-double-line { margin:2.2em 0; padding-left:1em; width:70%; max-width:500px; display:flex; flex-direction:column; gap:3px; opacity:0.5; }
-        .prose .scene-double-line::before,.prose .scene-double-line::after { content:''; height:1px; background:linear-gradient(to right,var(--accent),transparent); }
-        .prose p.drop::first-letter { float:left; font-size:4em; line-height:0.78; margin:0.05em 0.06em 0 0; color:var(--accent); font-weight:700; }
-        .prose .prose-empty-line { height:1.5em; margin:0; text-indent:0; }
-        .prose blockquote { margin:1.8em 0; padding:16px 20px; border-left:2.5px solid var(--accent); font-style:italic; color:var(--ink2); background:rgba(0,0,0,0.02); border-radius:4px; }
-        .prose blockquote p { text-indent:0; margin:0; }
-        .prose .ending { text-align:center; color:var(--ink3); font-size:14px; margin-top:40px; text-indent:0; }
-        .page-foot { margin-top:48px; padding-top:16px; border-top:0.5px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
-        .pf-side { font-family:var(--sans); font-size:11px; color:var(--ink3); }
-        .pf-num { font-family:var(--sans); font-size:13px; color:var(--ink2); font-weight:500; }
-        .prose b,.prose strong { font-weight:700; color:var(--ink); font-size:1.05em; }
-        .prose .lyrics-block { text-align:center; text-indent:0; color:var(--ink2); font-style:italic; line-height:2.1; padding:1.4em 1em; border-top:1px solid var(--border); border-bottom:1px solid var(--border); white-space:pre-wrap; }
-        .prose .lyrics-block::before { content:'♪'; display:block; color:var(--accent); font-style:normal; margin-bottom:0.8em; }
-        .prose .chat-block { text-indent:0; display:flex; flex-direction:column; gap:0.9em; font-family:var(--sans); background:rgba(139,94,60,0.04); border:1px solid rgba(139,94,60,0.12); padding:20px; border-radius:20px; max-width:min(540px,100%); margin:2.4em auto !important; }
-        .prose .chat-line { max-width:82%; padding:0.8em 1em; color:var(--ink); line-height:1.6; white-space:pre-wrap; font-size:0.92em; }
-        .prose .chat-line.chat-left { align-self:flex-start; background:var(--paper); border-radius:4px 16px 16px 16px; border:0.5px solid rgba(139,94,60,0.15); }
-        .prose .chat-line.chat-right { align-self:flex-end; background:rgba(196,154,108,0.22); border-radius:16px 4px 16px 16px; border:0.5px solid rgba(196,154,108,0.35); }
-        .prose .chat-sender { font-family:var(--sans) !important; font-size:0.82em !important; font-weight:700 !important; color:var(--accent) !important; text-shadow:none !important; display:inline-block; margin-right:4px; }
-        .prose .flashback-block { 
-            text-indent:0; 
-            padding:1.6em 1.4em; 
-            border-left:4px solid var(--accent); 
-            color:var(--ink); 
-            font-weight:600;
-            background:rgba(196,154,108,0.13); 
-            font-style:italic; 
-            line-height:2.1; 
-            border-radius:0 8px 8px 0;
-            box-shadow: inset 0 0 0 1px rgba(196,154,108,0.15);
-        }
-        .prose .music-block { text-indent:0; text-align:left; padding-left:1.1em; }
-        .prose .music-link { display:inline-flex; align-items:center; gap:0.55em; padding:0.8em 1.2em; border:1px solid var(--accent2); border-radius:999px; color:var(--accent); text-decoration:none; font-family:var(--sans); font-size:0.9em; background:rgba(196,154,108,0.10); cursor:pointer; transition:all 0.2s; }
-        .prose .music-link:hover { background:rgba(139,94,60,0.15); }
-        .prose .music-link.playing { background:rgba(139,94,60,0.25); border-color:var(--accent); }
-        .prose .transition-block { position:relative; text-indent:0; margin:3.5em 0; padding:2.4em 2em; font-family:var(--serif); font-size:0.96em; letter-spacing:0.04em; color:var(--ink); border-radius:18px; overflow:hidden; line-height:2.1; }
-        .prose .transition-block::before { content:''; position:absolute; inset:0; background:radial-gradient(circle at 25% 50%,rgba(196,154,108,0.24),transparent 65%),linear-gradient(90deg,transparent 5%,rgba(139,94,60,0.12) 25%,transparent 75%); z-index:0; }
-        .prose .transition-block span { position:relative; z-index:1; white-space:pre-wrap; }
-        .prose .illustration-block { text-indent:0; text-align:center; margin:2.8em auto !important; max-width:min(540px,100%); padding:8px; background:var(--paper-back); border:1px solid var(--border); border-radius:16px; }
-        .prose .illustration-img { width:100%; height:auto; border-radius:10px; object-fit:cover; }
-        .prose .illustration-caption { font-family:var(--sans); font-size:0.82em; color:var(--ink2); margin-top:8px !important; text-align:center; }
-        .prose .chapter-end-marker { text-align:center; text-indent:0 !important; font-family:var(--serif); font-size:0.9em; color:var(--ink2); letter-spacing:0.15em; max-width:min(540px,100%); margin:4.5em auto 2em auto !important; padding-top:2.2em; border-top:1px dashed var(--border); font-weight:500; }
-        .tb-center-progress { flex:1; min-width:0; padding:0 8px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; }
-        .tb-center-progress .tb-title { width:100%; flex:initial; padding:0; line-height:1.1; }
-        .reader-progress-track { width:min(360px,60vw); height:4px; background:var(--border); border-radius:999px; overflow:hidden; }
-        .reader-progress-fill { height:100%; width:0%; background:var(--accent); border-radius:999px; transition:width 0.08s linear; }
-        .reader-progress-label { font-family:var(--sans); font-size:10px; line-height:1; color:var(--ink3); }
-        .bookmark-anchor-highlight { animation:bookmarkAnchorPulse 1.8s ease-out 1; border-radius:8px; }
-        @keyframes bookmarkAnchorPulse{0%{background:rgba(196,154,108,0.30);}100%{background:transparent;}}
-        @media(max-width:640px){ .reader-progress-track{width:min(220px,50vw);} }
-        
-        /* ── MOBILE PAGE LAYOUT ── */
-        /* ── MOBILE KAKAO-STYLE READER ── */
-        /* 전체화면 슬라이드 컨테이너 */
-        #mob-reader {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+
+        /* ── 헤더 ── */
+        .site-header {
             background: var(--paper);
-            z-index: 200;
-            display: none;
-            overflow: hidden;
-            touch-action: none;
-
-        }
-        #mob-reader.active { display: block; }
-
-        /* 슬라이드 스트립 */
-        #mob-strip {
-            position: absolute;
-            top: 0; left: 0;
-            height: 100%;
-            display: flex;
-            will-change: transform;
-        }
-
-        /* 각 슬라이드 페이지 */
-        .mob-slide {
-            position: relative;
-            flex-shrink: 0;
-            overflow: hidden;
-            background: var(--paper);
-            display: flex;
-            align-items: flex-start;
-        }
-        .mob-slide-text {
-            width: 100%;
-            height: 100%;
-            padding: 28px 24px 40px;
-            overflow: hidden;
-            font-family: var(--serif);
-            font-size: 17px;
-            line-height: 2.0;
-            color: var(--ink);
-            word-break: keep-all;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
-            box-sizing: border-box;
-        }
-        .mob-slide-text p {
-            margin-bottom: 0.9em;
-            text-indent: 1em;
-            text-align: left;
-        }
-        .mob-slide-text p:first-child { text-indent: 0; }
-        /* 드롭캡 해제 */
-        .mob-slide-text p.drop::first-letter {
-            float: none !important; font-size: inherit !important;
-            line-height: inherit !important; margin: 0 !important;
-            color: inherit !important; font-weight: inherit !important;
-        }
-        /* 특수 블록 모바일 최적화 */
-        .mob-slide-text .chat-block { font-size: 0.88em; }
-        .mob-slide-text .flashback-block { font-size: 0.92em; padding: 1em 1em; }
-        .mob-slide-text .scene-dots { margin: 1.5em 0 1.5em 1em !important; }
-        .mob-slide-text .chapter-end-marker { margin: 2em auto 1em !important; font-size: 0.85em; }
-        .mob-slide-text .illustration-block { max-width: 100%; }
-        .mob-slide-text .music-block { padding-left: 0; }
-
-        /* ── 상단 바 ── */
-        #mob-topbar {
-            position: fixed;
-            top: env(safe-area-inset-top, 0px);
-            left: 0; right: 0;
-            background: rgba(253,250,243,0.97);
             border-bottom: 0.5px solid var(--border);
-            z-index: 210;
-            transform: translateY(-110%);
-            transition: transform 0.28s ease;
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-        }
-        #mob-topbar.visible { transform: translateY(0); }
-
-        .mob-topbar-row1 {
+            padding: 0 40px;
+            height: 56px;
             display: flex;
             align-items: center;
-            padding: 10px 12px 6px;
-            gap: 6px;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 50;
         }
-        .mob-tb-btn {
-            background: none; border: none; cursor: pointer;
-            color: var(--ink2); width: 34px; height: 34px;
-            border-radius: 8px; font-size: 16px;
-            display: flex; align-items: center; justify-content: center;
-            flex-shrink: 0;
+        .site-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
         }
-        .mob-tb-title-text {
-            flex: 1;
-            font-family: var(--sans);
-            font-size: 13px;
-            font-weight: 600;
+        .site-logo-mark {
+            width: 32px;
+            height: 32px;
+            background: var(--accent);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--paper);
+            font-size: 15px;
+        }
+        .site-logo-text {
+            font-family: var(--serif);
+            font-size: 16px;
+            font-weight: 700;
             color: var(--ink);
-            text-align: center;
+            letter-spacing: -0.01em;
+        }
+        .site-logo-sub {
+            font-family: var(--sans);
+            font-size: 11px;
+            color: var(--ink3);
+            margin-top: 1px;
+        }
+
+        /* ── 메인 콘텐츠 ── */
+        .main-wrap {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 56px 40px 80px;
+        }
+        .section-label {
+            font-family: var(--sans);
+            font-size: 11px;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--ink3);
+            margin-bottom: 20px;
+        }
+        .section-title {
+            font-family: var(--serif);
+            font-size: 26px;
+            font-weight: 700;
+            color: var(--ink);
+            margin-bottom: 40px;
+            line-height: 1.3;
+        }
+
+        /* ── 작품 그리드 ── */
+        .book-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 32px 24px;
+        }
+        .book-card {
+            cursor: pointer;
+            text-decoration: none;
+            display: block;
+        }
+        .book-cover-wrap {
+            width: 100%;
+            aspect-ratio: 10 / 16;
+            border-radius: 10px;
+            overflow: hidden;
+            background: var(--paper-back);
+            border: 0.5px solid var(--border);
+            box-shadow: 0 8px 20px -6px rgba(0,0,0,0.18), 0 2px 6px -2px rgba(0,0,0,0.10);
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+            position: relative;
+        }
+        .book-card:hover .book-cover-wrap {
+            transform: translateY(-4px);
+            box-shadow: 0 16px 32px -8px rgba(0,0,0,0.24), 0 4px 10px -2px rgba(0,0,0,0.12);
+        }
+        .book-cover-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .book-cover-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            color: var(--accent2);
+            opacity: 0.6;
+        }
+        .book-info {
+            margin-top: 12px;
+            padding: 0 2px;
+        }
+        .book-title {
+            font-family: var(--serif);
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--ink);
+            line-height: 1.4;
+            margin-bottom: 3px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        .mob-tb-right {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            flex-shrink: 0;
-        }
-        .mob-topbar-row2 {
-            display: flex;
-            align-items: center;
-            padding: 4px 14px 12px;
-            gap: 8px;
-        }
-        .mob-ch-nav-btn {
-            background: none; border: none; cursor: pointer;
-            color: var(--ink2); width: 30px; height: 30px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 13px; flex-shrink: 0;
-        }
-        .mob-ch-nav-btn:disabled { opacity: 0.2; pointer-events: none; }
-        .mob-ch-progress-wrap {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-        .mob-ch-label {
-            font-family: var(--sans);
-            font-size: 11px;
-            color: var(--accent);
-            font-weight: 600;
-            text-align: center;
-            letter-spacing: 0.04em;
-        }
-        .mob-ch-track {
-            height: 3px;
-            background: var(--border);
-            border-radius: 999px;
-            overflow: hidden;
-        }
-        .mob-ch-fill {
-            height: 100%;
-            background: var(--accent);
-            border-radius: 999px;
-            transition: width 0.2s;
-        }
-
-        /* ── 하단 바 ── */
-        #mob-bottombar {
-            position: fixed;
-            bottom: 0; left: 0; right: 0;
-            background: rgba(253,250,243,0.97);
-            border-top: 0.5px solid var(--border);
-            padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
-            z-index: 210;
-            transform: translateY(110%);
-            transition: transform 0.28s ease;
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-        }
-        #mob-bottombar.visible { transform: translateY(0); }
-        .mob-page-nav-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 10px;
-        }
-        .mob-page-nav-btn {
-            background: none;
-            border: 0.5px solid var(--border);
-            border-radius: 8px;
-            cursor: pointer;
+        .book-author {
             font-family: var(--sans);
             font-size: 12px;
-            color: var(--ink2);
-            padding: 7px 12px;
-            white-space: nowrap;
-            display: flex; align-items: center; gap: 4px;
+            color: var(--ink3);
         }
-        .mob-page-nav-btn:disabled { opacity: 0.2; pointer-events: none; }
-        .mob-page-nav-btn:active { background: var(--border); }
-        .mob-page-progress-wrap {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 4px;
+
+        /* ── 로딩 스켈레톤 ── */
+        .skeleton-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 32px 24px;
         }
-        .mob-page-track {
+        .skeleton-card { display: block; }
+        .skeleton-cover {
             width: 100%;
-            height: 3px;
-            background: var(--border);
-            border-radius: 999px;
-            overflow: hidden;
+            aspect-ratio: 10 / 16;
+            border-radius: 10px;
+            background: linear-gradient(90deg, var(--paper-back) 25%, var(--border) 50%, var(--paper-back) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.4s infinite;
         }
-        .mob-page-fill {
-            height: 100%;
-            background: var(--accent2);
-            border-radius: 999px;
-            transition: width 0.15s;
+        .skeleton-line {
+            height: 13px;
+            border-radius: 6px;
+            background: linear-gradient(90deg, var(--paper-back) 25%, var(--border) 50%, var(--paper-back) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.4s infinite;
+            margin-top: 12px;
         }
-        .mob-page-label {
-            font-family: var(--sans);
-            font-size: 11px;
-            color: var(--ink3);
-        }
-        .mob-font-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .mob-font-label { font-family: var(--sans); font-size: 12px; color: var(--ink3); }
-        .mob-font-slider {
-            flex: 1;
-            -webkit-appearance: none;
-            height: 3px;
-            background: var(--border);
-            border-radius: 2px;
-            outline: none;
-        }
-        .mob-font-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 18px; height: 18px;
-            border-radius: 50%;
-            background: var(--accent);
-            cursor: pointer;
-        }
-        .mob-font-val { font-family: var(--sans); font-size: 12px; color: var(--ink); min-width: 24px; text-align: right; }
+        .skeleton-line.short { width: 55%; margin-top: 6px; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
-        /* 목차 시트 */
-        #mob-toc-sheet {
-            position: fixed;
-            inset: 0;
-            z-index: 220;
-            display: none;
-        }
-        #mob-toc-sheet.open { display: flex; flex-direction: column; }
-        .mob-toc-backdrop {
-            position: absolute;
-            inset: 0;
-            background: rgba(0,0,0,0.5);
-        }
-        .mob-toc-panel {
-            position: absolute;
-            left: 0; top: 0; bottom: 0;
-            width: 80%;
-            max-width: 320px;
-            background: var(--paper);
-            overflow-y: auto;
-            padding: 52px 0 24px;
-        }
-        .mob-toc-title {
-            font-family: var(--sans);
-            font-size: 11px;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            color: var(--ink3);
-            padding: 0 20px 8px;
-        }
-        .mob-toc-item {
-            display: block; width: 100%;
-            background: none; border: none;
-            text-align: left;
-            font-family: var(--serif);
-            font-size: 14px;
-            color: var(--ink2);
-            padding: 12px 20px;
-            cursor: pointer;
-            border-left: 2.5px solid transparent;
-            transition: all 0.12s;
-        }
-        .mob-toc-item:active { background: var(--border); }
-        .mob-toc-item.active { color: var(--accent); border-left-color: var(--accent); font-weight: 500; }
-
-        /* 표지 슬라이드 */
-        .mob-cover-slide {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
+        /* ── 에러/빈 상태 ── */
+        .empty-state {
             text-align: center;
-            padding: 60px 32px;
-            height: 100%;
-            overflow-y: auto;
+            padding: 80px 20px;
+            color: var(--ink3);
         }
-        ::-webkit-scrollbar{width:6px;height:6px;}
-        ::-webkit-scrollbar-track{background:transparent;}
-        ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
-        ::-webkit-scrollbar-thumb:hover{background:var(--ink3);}
+        .empty-state i { font-size: 40px; margin-bottom: 16px; display: block; }
+        .empty-state p { font-family: var(--sans); font-size: 14px; }
+
+        /* ── 푸터 ── */
+        .site-footer {
+            border-top: 0.5px solid var(--border);
+            padding: 24px 40px;
+            text-align: center;
+            font-family: var(--sans);
+            font-size: 12px;
+            color: var(--ink3);
+            background: var(--paper);
+        }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-800 font-sans min-h-screen transition-colors duration-300">
-<script>if(new URLSearchParams(location.search).get('id')){document.write('<style id="hs">#author-header,#author-workspace,#author-footer{display:none!important}body{background:#f4f1eb!important}</style>');}</script>
+<body>
 
-
-
-<div id="app" class="flex flex-col min-h-screen">
-    
-    <header id="author-header" class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
-        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-            <div class="flex items-center space-x-3 cursor-pointer" onclick="goHome()">
-                <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md shadow-indigo-200">
-                    <i class="fa-solid fa-rabbit text-lg"></i>
-                </div>
-                <div>
-                    <span class="font-bold text-slate-800 text-lg block leading-none">주남 유니버스</span>
-                    <span class="text-xs text-slate-400 font-medium">나만의 실시간 E-Book 메이커</span>
-                </div>
-            </div>
-            <div class="flex items-center space-x-2 bg-slate-100 p-1 rounded-xl">
-                <button id="btn-mode-author" onclick="switchViewMode('author')" class="px-4 py-1.5 rounded-lg text-sm font-semibold transition-all duration-200 bg-white text-indigo-600 shadow-sm">
-                    <i class="fa-solid fa-pen-nib mr-1.5"></i>작가 모드
-                </button>
-                <button id="btn-mode-reader" onclick="switchViewMode('reader')" class="px-4 py-1.5 rounded-lg text-sm font-semibold transition-all duration-200 text-slate-500 hover:text-slate-800">
-                    <i class="fa-solid fa-book-open-reader mr-1.5"></i>독자 뷰어
-                </button>
-            </div>
-            <div class="flex items-center space-x-3">
-                <button onclick="promptAuthorMode()" class="w-10 h-10 rounded-xl hover:bg-slate-100 flex items-center justify-center text-slate-400 transition-all" title="작가 모드">
-                    <i class="fa-solid fa-lock text-base"></i>
-                </button>
-                <button onclick="openConfigModal()" class="w-10 h-10 rounded-xl hover:bg-slate-100 flex items-center justify-center text-slate-500 transition-all border border-slate-200">
-                    <i class="fa-solid fa-gear text-lg"></i>
-                </button>
-                <div id="db-status-badge" class="flex items-center px-3 py-1.5 bg-amber-50 text-amber-700 text-xs font-semibold rounded-lg border border-amber-200">
-                    <span class="w-2 h-2 bg-amber-500 rounded-full mr-2 animate-pulse"></span>연결 중...
-                </div>
-            </div>
+<header class="site-header">
+    <a href="index.html" class="site-logo">
+        <div class="site-logo-mark"><i class="fa-solid fa-book-open-reader"></i></div>
+        <div>
+            <div class="site-logo-text">주남 유니버스</div>
+            <div class="site-logo-sub">나만의 E-Book 플랫폼</div>
         </div>
-    </header>
+    </a>
+</header>
 
-    <main id="author-workspace" class="flex-1 max-w-7xl w-full mx-auto px-4 py-6 flex flex-col md:flex-row gap-6">
-        <div class="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4">
-            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-                <h3 class="font-bold text-slate-800 mb-4 flex items-center">
-                    <i class="fa-solid fa-circle-info text-indigo-500 mr-2"></i>책 기본정보 설정
-                </h3>
-                <div class="space-y-3">
-                    <div>
-                        <label class="text-xs font-bold text-slate-400 block mb-1">도서 제목</label>
-                        <input type="text" id="input-book-title" value="나의 첫 번째 이야기책" oninput="updateBookInfo()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                    <div>
-                        <label class="text-xs font-bold text-slate-400 block mb-1">작가명</label>
-                        <input type="text" id="input-book-author" value="무명작가" oninput="updateBookInfo()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                    <div>
-                        <label class="text-xs font-bold text-slate-400 block mb-1">작품 설명 (표지 시놉시스)</label>
-                        <textarea id="input-book-description" placeholder="표지에 표시될 작품 소개" oninput="updateBookInfo()" class="w-full h-24 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none leading-normal"></textarea>
-                    </div>
-                    <div class="border-t border-slate-100 pt-3">
-                        <span class="text-xs font-bold text-indigo-600 block mb-2"><i class="fa-solid fa-image mr-1"></i>기기 최적화 표지 등록</span>
-                        <div class="space-y-2.5">
-                            <div>
-                                <label class="text-[10px] font-bold text-slate-400 block mb-0.5">① 웹소설 규격 (1:1.6 / 모바일)</label>
-                                <input type="url" id="input-book-cover-webnovel" placeholder="이미지 URL" oninput="updateBookInfo()" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                            </div>
-                            <div>
-                                <label class="text-[10px] font-bold text-slate-400 block mb-0.5">② 태블릿 규격 (3:4)</label>
-                                <input type="url" id="input-book-cover-tablet" placeholder="이미지 URL" oninput="updateBookInfo()" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                            </div>
-                            <div>
-                                <label class="text-[10px] font-bold text-slate-400 block mb-0.5">③ 단행본 규격 (1:1.414 / 데스크톱)</label>
-                                <input type="url" id="input-book-cover-standard" placeholder="이미지 URL" oninput="updateBookInfo()" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+<main class="main-wrap">
+    <div class="section-label">연재 중인 작품</div>
+    <div class="section-title">모든 작품</div>
 
-            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex-1 flex flex-col min-h-[350px]">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="font-bold text-slate-800 flex items-center">
-                        <i class="fa-solid fa-list-ol text-indigo-500 mr-2"></i>수록된 회차 목차
-                    </h3>
-                    <span id="chapter-count" class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md text-xs font-bold">0화</span>
-                </div>
-                <div id="author-chapter-list" class="flex-1 overflow-y-auto space-y-2 max-h-[300px] pr-1">
-                    <div class="text-center py-10 text-slate-400 text-sm">
-                        <i class="fa-solid fa-box-open text-3xl mb-2 block"></i>
-                        등록된 회차가 없습니다.
-                    </div>
-                </div>
-                <button onclick="saveToCloud()" class="w-full mt-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold text-sm shadow-md shadow-indigo-100 flex items-center justify-center transition-all">
-                    <i class="fa-solid fa-cloud-arrow-up mr-2"></i>클라우드 저장 및 공유하기
-                </button>
-            </div>
+    <!-- 로딩 스켈레톤 -->
+    <div class="skeleton-grid" id="skeleton">
+        <div class="skeleton-card">
+            <div class="skeleton-cover"></div>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line short"></div>
         </div>
-
-        <div class="flex-1 flex flex-col gap-4">
-            <div id="drop-zone" class="border-2 border-dashed border-indigo-200 bg-indigo-50/30 hover:bg-indigo-50/70 rounded-2xl p-6 text-center cursor-pointer transition-all">
-                <input type="file" id="file-uploader" class="hidden" accept=".txt">
-                <div class="flex flex-col items-center justify-center" onclick="document.getElementById('file-uploader').click()">
-                    <i class="fa-solid fa-file-arrow-up text-indigo-500 text-3xl mb-2"></i>
-                    <h4 class="font-semibold text-slate-700 text-sm">TXT 원고를 여기에 넣어주세요</h4>
-                </div>
-            </div>
-            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col flex-1">
-                <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4">
-                    <div class="flex-1">
-                        <input type="text" id="edit-chapter-title" placeholder="회차 제목을 입력하세요" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-semibold">
-                    </div>
-                    <div class="flex items-end gap-2">
-                        <button id="btn-cancel-edit" onclick="resetEditor()" class="hidden h-10 px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-sm font-semibold flex items-center justify-center transition-all font-sans">새 회차 작성 (수정 취소)</button>
-                        <button id="btn-submit-chapter" onclick="addOrUpdateChapter()" class="w-full sm:w-auto h-10 px-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold flex items-center justify-center transition-all shadow-sm font-sans">이 회차를 등록</button>
-                    </div>
-                </div>
-                <div class="flex-1 flex flex-col min-h-[300px]">
-                    <textarea id="edit-chapter-content" placeholder="이곳에 소설 본문을 작성하거나 붙여넣으세요." class="w-full flex-1 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-700 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-serif resize-none leading-relaxed"></textarea>
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <!-- 독자 뷰어 -->
-    <div id="reader-workspace" class="hidden fixed inset-0 flex flex-col z-50 font-sans" style="background:var(--bg);color:var(--ink);">
-        <div class="topbar">
-            <button class="tb-btn" id="tbLeft"><i class="fa-solid fa-bars"></i></button>
-            <div class="tb-center-progress">
-                <span id="tbTitle" class="tb-title text-center block font-sans">주남 유니버스 뷰어</span>
-                <div class="reader-progress-track">
-                    <div id="reader-top-progress-fill" class="reader-progress-fill"></div>
-                </div>
-                <span id="reader-top-progress-label" class="reader-progress-label">0%</span>
-            </div>
-            <div class="flex items-center space-x-1">
-                <div class="volume-control-wrap">
-                    <i class="fa-solid fa-volume-low text-xs cursor-pointer" id="volume-icon" onclick="toggleMute()"></i>
-                    <input type="range" id="volume-slider" class="volume-slider" min="0" max="100" value="15" oninput="changeVolume(this.value)">
-                    <button id="master-play-pause-btn" class="w-6 h-6 rounded hover:bg-amber-100 flex items-center justify-center text-xs ml-1" onclick="toggleMasterPlayPause()">
-                        <i class="fa-solid fa-play"></i>
-                    </button>
-                </div>
-                <button class="tb-btn" id="tbRight" style="font-size:14px;"><i class="fa-solid fa-font"></i></button>
-                <button class="tb-btn" onclick="promptAuthorMode()" style="font-size:16px;" title="작가 모드"><i class="fa-solid fa-lock"></i></button>
-            </div>
-            <div id="page-top-scroll-progress"></div>
-        </div>
-
-        <div class="body-row">
-            <nav class="sidebar" id="sidebar">
-                <div class="sidebar-inner">
-                    <div class="sb-info">
-                        <div class="sb-book-title" id="sb-book-title-el">제목</div>
-                        <div class="sb-book-author" id="sb-book-author-el">작가 지음</div>
-                    </div>
-                    <div class="sb-section">진행</div>
-                    <div class="sb-prog-track"><div class="sb-prog-fill" id="sbFill" style="width:0%"></div></div>
-                    <div class="sb-prog-text" id="sbText">표지</div>
-                    <div class="sb-divider"></div>
-                    <div class="sb-section">목차</div>
-                    <div class="sb-toc" id="sbToc"></div>
-                    <div class="sb-font-row">
-                        <span class="sb-font-label font-sans">글자 크기</span>
-                        <button class="font-btn" id="pcFontDown">A-</button>
-                        <span class="font-val" id="pcFontVal">16</span>
-                        <button class="font-btn" id="pcFontUp">A+</button>
-                    </div>
-                </div>
-            </nav>
-
-            <div class="stage" id="stage">
-                <canvas id="flipCanvas" style="position:absolute;inset:0;width:100%;height:100%;z-index:40;display:none;touch-action:none;"></canvas>
-            </div>
-        </div>
-
-        <div class="pc-bottom" id="pcBottom">
-            <button class="nav-btn" id="pcPrev" onclick="navigateToAdjacentChapter(-1)" disabled><i class="fa-solid fa-chevron-left"></i> 이전화</button>
-            <div class="pc-dots" id="pcDots"></div>
-            <button class="nav-btn" id="pcNext" onclick="navigateToAdjacentChapter(1)">다음화 <i class="fa-solid fa-chevron-right"></i></button>
-        </div>
-
-        <div class="mob-bottom" id="mobBottom" style="display:none;">
-            <button class="mob-nav" id="mobPrev" onclick="navigateToAdjacentChapter(-1)" disabled>← 이전화</button>
-            <div class="mob-dots" id="mobDots"></div>
-            <button class="mob-nav" id="mobNext" onclick="navigateToAdjacentChapter(1)">다음화 →</button>
-        </div>
-
-        <div class="menu-overlay" id="menuOverlay">
-            <div class="menu-sheet">
-                <div class="menu-handle"></div>
-                <div class="menu-section">목차</div>
-                <div id="mobTocContainer" class="max-h-[250px] overflow-y-auto"></div>
-                <div class="menu-sep"></div>
-                <div class="menu-font-row">
-                    <label style="font-family:var(--sans);font-size:13px;color:var(--ink2);flex:1;">글자 크기</label>
-                    <button class="mfc-btn" id="mobFontDown">A-</button>
-                    <span class="mfc-val" id="mobFontVal">16</span>
-                    <button class="mfc-btn" id="mobFontUp">A+</button>
-                </div>
-            </div>
+        <div class="skeleton-card">
+            <div class="skeleton-cover"></div>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line short"></div>
         </div>
     </div>
 
-    <footer id="author-footer" class="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-400">
-        <p>© 2026 주남 유니버스 E-Book Platform. All rights reserved.</p>
-    </footer>
-</div>
+    <!-- 작품 목록 -->
+    <div class="book-grid" id="book-grid" style="display:none;"></div>
 
-<!-- ── MOBILE KAKAO-STYLE READER ── -->
-<div id="mob-reader">
-    <!-- 슬라이드 스트립 -->
-    <div id="mob-strip"></div>
-    <button id="mob-prev-arrow" onclick="mobGoToSlide(mobCurSlide-1)" style="position:fixed;left:0;top:50%;transform:translateY(-50%);z-index:206;width:28px;height:60px;background:rgba(0,0,0,0.08);border:none;border-radius:0 8px 8px 0;font-size:14px;color:var(--ink3);cursor:pointer;">‹</button>
-    <button id="mob-next-arrow" onclick="mobGoToSlide(mobCurSlide+1)" style="position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:206;width:28px;height:60px;background:rgba(0,0,0,0.08);border:none;border-radius:8px 0 0 8px;font-size:14px;color:var(--ink3);cursor:pointer;">›</button>
-
-    <!-- 상단 바: 목차 + 볼륨 + 화 정보 + 화 이동 -->
-    <div id="mob-topbar">
-        <div class="mob-topbar-row1">
-            <button class="mob-tb-btn" onclick="mobTocOpen()"><i class="fa-solid fa-bars"></i></button>
-            <span id="mob-tb-title" class="mob-tb-title-text">뷰어</span>
-            <div class="mob-tb-right">
-                <i class="fa-solid fa-volume-low text-xs cursor-pointer" id="mob-volume-icon" onclick="toggleMute()" style="color:var(--ink3);"></i>
-                <input type="range" id="mob-volume-slider" min="0" max="100" value="15" oninput="changeVolume(this.value);document.getElementById('volume-slider').value=this.value;" style="-webkit-appearance:none;width:50px;height:3px;background:var(--border);border-radius:2px;outline:none;cursor:pointer;">
-                <button class="mob-tb-btn" id="mob-play-btn" onclick="toggleMasterPlayPause()" style="width:28px;height:28px;font-size:13px;"><i class="fa-solid fa-play"></i></button>
-                <button class="mob-tb-btn" onclick="promptAuthorMode()" style="width:28px;height:28px;font-size:14px;"><i class="fa-solid fa-lock"></i></button>
-            </div>
-        </div>
-        <div class="mob-topbar-row2">
-            <button class="mob-ch-nav-btn" id="mob-prev-ch" onclick="mobPrevChapter()"><i class="fa-solid fa-chevron-left"></i></button>
-            <div class="mob-ch-progress-wrap">
-                <div class="mob-ch-label" id="mob-ch-label">표지</div>
-                <div class="mob-ch-track"><div class="mob-ch-fill" id="mob-ch-fill" style="width:0%"></div></div>
-            </div>
-            <button class="mob-ch-nav-btn" id="mob-next-ch" onclick="mobNextChapter()"><i class="fa-solid fa-chevron-right"></i></button>
-        </div>
+    <!-- 빈 상태 -->
+    <div class="empty-state" id="empty-state" style="display:none;">
+        <i class="fa-solid fa-box-open"></i>
+        <p>등록된 작품이 없습니다.</p>
     </div>
+</main>
 
-    <!-- 하단 바: 페이지 이동 + 페이지 프로그레스 + 글자크기 -->
-    <div id="mob-bottombar">
-        <div class="mob-page-nav-row">
-            <button class="mob-page-nav-btn" id="mob-prev-page" onclick="mobGoToSlide(mobCurSlide-1)"><i class="fa-solid fa-chevron-left"></i> 이전</button>
-            <div class="mob-page-progress-wrap">
-                <div class="mob-page-track"><div class="mob-page-fill" id="mob-page-fill" style="width:0%"></div></div>
-                <span class="mob-page-label" id="mob-page-label">1 / 1</span>
-            </div>
-            <button class="mob-page-nav-btn" id="mob-next-page" onclick="mobGoToSlide(mobCurSlide+1)">다음 <i class="fa-solid fa-chevron-right"></i></button>
-        </div>
-        <div class="mob-font-row">
-            <span class="mob-font-label" style="font-size:13px;">가</span>
-            <input type="range" class="mob-font-slider" id="mob-font-slider" min="13" max="22" value="17" oninput="mobSetFont(this.value)">
-            <span class="mob-font-val" id="mob-font-val">17</span>
-            <span class="mob-font-label" style="font-size:17px;">가</span>
-        </div>
-    </div>
-
-    <!-- 목차 시트 -->
-    <div id="mob-toc-sheet">
-        <div class="mob-toc-backdrop" onclick="mobTocClose()"></div>
-        <div class="mob-toc-panel" id="mob-toc-panel">
-            <div class="mob-toc-title">목차</div>
-            <div id="mob-toc-list"></div>
-        </div>
-    </div>
-</div>
-
-<!-- 커스텀 삭제 확인 모달 -->
-<div id="modal-confirm-delete" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4 hidden">
-    <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl text-center">
-        <div class="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4">
-            <i class="fa-solid fa-trash-can text-2xl"></i>
-        </div>
-        <h3 class="font-bold text-slate-800 text-lg mb-1">정말 삭제하시겠습니까?</h3>
-        <p class="text-xs text-slate-400 mb-5">삭제된 원고는 복구할 수 없습니다.</p>
-        <div class="flex gap-2">
-            <button onclick="closeDeleteModal(false)" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm">취소</button>
-            <button onclick="closeDeleteModal(true)" class="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-sm">삭제</button>
-        </div>
-    </div>
-</div>
-
-<!-- 이어읽기 복원 모달 -->
-<div id="modal-bookmark" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl text-center">
-        <div class="w-16 h-16 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4">
-            <i class="fa-solid fa-bookmark text-2xl"></i>
-        </div>
-        <h3 class="font-bold text-slate-800 text-lg mb-1">읽던 지점이 있습니다</h3>
-        <p id="bookmark-info-text" class="text-xs text-slate-400 mb-5 leading-relaxed">이전에 읽던 지점부터 이어서 보시겠습니까?</p>
-        <div class="flex gap-2">
-            <button onclick="closeBookmarkModal(false)" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm">처음부터</button>
-            <button onclick="closeBookmarkModal(true)" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm">이어서 읽기</button>
-        </div>
-    </div>
-</div>
-
-<!-- Firebase 설정 모달 -->
-<div id="modal-config" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl flex flex-col max-h-[90vh]">
-        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-            <h3 class="font-bold text-slate-800 text-lg">클라우드 DB 설정</h3>
-            <button onclick="closeConfigModal()" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400"><i class="fa-solid fa-xmark text-lg"></i></button>
-        </div>
-        <div class="py-4 text-sm text-slate-600">
-            <p class="mb-3 text-xs text-slate-400">현재 주남 유니버스 Firebase 프로젝트에 연결되어 있습니다.</p>
-            <div>
-                <label class="text-xs font-bold text-slate-400 block mb-1">Firebase Config (변경 시 붙여넣기)</label>
-                <textarea id="config-textarea" class="w-full h-32 p-3 bg-slate-900 text-emerald-400 font-mono text-xs rounded-xl focus:outline-none" placeholder='const firebaseConfig = { apiKey: "...", ... };'></textarea>
-            </div>
-        </div>
-        <div class="pt-4 border-t border-slate-100 flex items-center justify-end space-x-2">
-            <button onclick="clearConfig()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-semibold">초기화</button>
-            <button onclick="saveConfig()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold">적용하기</button>
-        </div>
-    </div>
-</div>
-
-<!-- 공유 링크 모달 -->
-<div id="modal-share" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl text-center">
-        <div class="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
-            <i class="fa-solid fa-paper-plane text-2xl"></i>
-        </div>
-        <h3 class="font-bold text-slate-800 text-lg mb-1">클라우드 저장 완료!</h3>
-        <div class="flex items-center space-x-1.5 bg-slate-50 p-2.5 border border-slate-200 rounded-xl mb-4 mt-4">
-            <input type="text" id="share-link-input" readonly class="bg-transparent text-slate-600 text-xs flex-1 outline-none font-semibold truncate">
-            <button onclick="copyShareLink()" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold">복사하기</button>
-        </div>
-        <button onclick="closeShareModal()" class="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-sm">창 닫기</button>
-    </div>
-</div>
-
-<!-- YouTube BGM container -->
-<div id="yt-audio-container" style="position:absolute;width:1px;height:1px;left:-9999px;top:-9999px;overflow:hidden;opacity:0;pointer-events:none;">
-    <div id="yt-audio-player"></div>
-</div>
+<footer class="site-footer">
+    © 2026 주남 유니버스. All rights reserved.
+</footer>
 
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-<script src="https://www.youtube.com/iframe_api"></script>
-
-
-<script src="https://cdn.jsdelivr.net/npm/vconsole@3.15.1/dist/vconsole.min.js"></script>
+<script src="js/app.js"></script>
 <script>
-    if (typeof VConsole !== 'undefined') {
-        window.vConsole = new VConsole({ theme: 'dark', maxLogNumber: 10000 });
+(async function() {
+    const db = await initFirebase();
+    const skeleton = document.getElementById('skeleton');
+    const grid = document.getElementById('book-grid');
+    const empty = document.getElementById('empty-state');
+
+    if (!db) {
+        skeleton.style.display = 'none';
+        empty.style.display = 'block';
+        return;
     }
-    (function() {
-        var STORAGE_KEY = '_safari_crash_blackbox';
-        function saveToBlackbox(type, message) {
-            try {
-                var time = new Date().toLocaleTimeString();
-                var logs = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-                logs.push('[' + time + '] [' + type + '] ' + message);
-                if (logs.length > 150) logs.shift();
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
-            } catch(e) {}
-        }
-        var origLog = console.log, origWarn = console.warn, origError = console.error;
-        console.log = function() { var m = Array.prototype.slice.call(arguments).map(function(a){return typeof a==='object'?JSON.stringify(a):a;}).join(' '); saveToBlackbox('LOG',m); origLog.apply(console,arguments); };
-        console.warn = function() { var m = Array.prototype.slice.call(arguments).map(function(a){return typeof a==='object'?JSON.stringify(a):a;}).join(' '); saveToBlackbox('WARN',m); origWarn.apply(console,arguments); };
-        console.error = function() { var m = Array.prototype.slice.call(arguments).map(function(a){return typeof a==='object'?JSON.stringify(a):a;}).join(' '); saveToBlackbox('ERR',m); origError.apply(console,arguments); };
-        setInterval(function() {
-            try {
-                var vvh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-                var ih = window.innerHeight;
-                saveToBlackbox('VH', 'visualViewport:' + vvh + ' innerHeight:' + ih);
-            } catch(e) {}
-        }, 3000);
-        window.onerror = function(msg, url, line, col, error) {
-            saveToBlackbox('CRASH', msg + ' (' + url + ':' + line + ':' + col + ')\n' + (error && error.stack ? error.stack : 'No stack'));
-            return false;
-        };
-        window.addEventListener('unhandledrejection', function(e) {
-            var reason = e.reason;
-            saveToBlackbox('PROMISE', reason && reason.message ? reason.message : JSON.stringify(reason));
-        });
-        window.addEventListener('DOMContentLoaded', function() {
-            setTimeout(function() {
-                var saved = localStorage.getItem(STORAGE_KEY);
-                if (saved) {
-                    var logs = JSON.parse(saved);
-                    if (logs.length > 0) {
-                        origError.call(console, '==== 이전 세션 블랙박스 ====');
-                        logs.forEach(function(l) { origWarn.call(console, l); });
-                        origError.call(console, '============================');
-                        if (window.vConsole && window.vConsole.show) window.vConsole.show();
-                    }
-                    localStorage.removeItem(STORAGE_KEY);
-                }
-            }, 800);
-        });
-    })();
+
+    const books = await loadAllBooks(db);
+
+    skeleton.style.display = 'none';
+
+    if (!books.length) {
+        empty.style.display = 'block';
+        return;
+    }
+
+    grid.style.display = 'grid';
+    grid.innerHTML = books.map(book => {
+        const coverUrl = convertImageUrl(
+            book.coverUrlWebnovel || book.coverUrlStandard || book.coverUrlTablet || book.coverUrl || ''
+        );
+        const coverHtml = coverUrl
+            ? `<img class="book-cover-img" src="${coverUrl}" alt="${book.title}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+            : '';
+        const placeholderStyle = coverUrl ? 'display:none;' : '';
+        return `
+        <a class="book-card" href="toc.html?id=${book.id}">
+            <div class="book-cover-wrap">
+                ${coverHtml}
+                <div class="book-cover-placeholder" style="${placeholderStyle}">❧</div>
+            </div>
+            <div class="book-info">
+                <div class="book-title">${book.title || '제목 없음'}</div>
+                <div class="book-author">${book.author || ''}</div>
+            </div>
+        </a>`;
+    }).join('');
+})();
 </script>
-<script src="./js/app.js"></script>
 </body>
 </html>
