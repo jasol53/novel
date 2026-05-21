@@ -329,7 +329,7 @@ function renderChapterList() {
 
     // 표지
     const coverUrl = convertImageUrl(
-        book.coverUrlWebnovel || book.coverUrlStandard || book.coverUrlTablet || book.coverUrl || ''
+    book.coverUrlStandard || book.coverUrlTablet || book.coverUrlWebnovel || ''
     );
     const coverImg = document.getElementById('book-cover');
     if (coverUrl) {
