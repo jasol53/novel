@@ -199,7 +199,7 @@
             word-break: keep-all;
             display: flex;
             flex-direction: column;
-            justify-content: flex-start;
+            justify-content: space-between;
             box-sizing: border-box;
         }
         .mob-slide-text p {
