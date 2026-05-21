@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>목차 — 주남 유니버스</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;500;700&family=Noto+Sans+KR:wght@300;400;500;700&family=Song+Myung&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        html, body { min-height: 100vh; background: var(--bg); }
+
+        /* ── 헤더 ── */
+        .site-header {
+            background: var(--paper);
+            border-bottom: 0.5px solid var(--border);
+            padding: 0 40px;
+            height: 52px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+        .back-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-family: var(--sans);
+            font-size: 13px;
+            color: var(--ink2);
+            text-decoration: none;
+            padding: 6px 10px;
+            border-radius: 8px;
+            transition: background 0.15s;
+        }
+        .back-btn:hover { background: var(--border); }
+        .header-title {
+            font-family: var(--sans);
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--ink);
+        }
+
+        /* ── 레이아웃 ── */
+        .toc-wrap {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 48px 40px 80px;
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            gap: 56px;
+            align-items: start;
+        }
+
+        /* ── 좌측: 표지 + 정보 ── */
+        .book-aside { position: sticky; top: 80px; }
+        .book-cover-wrap {
+            width: 100%;
+            aspect-ratio: 10 / 16;
+            border-radius: 12px;
+            overflow: hidden;
+            background: var(--paper-back);
+            border: 0.5px solid var(--border);
+            box-shadow: 0 16px 36px -10px rgba(0,0,0,0.22), 0 4px 12px -4px rgba(0,0,0,0.12);
+            margin-bottom: 20px;
+        }
+        .book-cover-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .book-cover-placeholder {
+            width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 48px; color: var(--accent2); opacity: 0.5;
+        }
+        .book-title {
+            font-family: var(--serif);
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--ink);
+            line-height: 1.4;
+            margin-bottom: 6px;
+        }
+        .book-author {
+            font-family: var(--sans);
+            font-size: 13px;
+            color: var(--ink3);
+            margin-bottom: 20px;
+        }
+        .start-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 13px 0;
+            background: var(--accent);
+            color: var(--paper);
+            border: none;
+            border-radius: 10px;
+            font-family: var(--sans);
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.15s, transform 0.15s;
+        }
+        .start-btn:hover { background: #7a5234; transform: translateY(-1px); }
+
+        /* ── 우측: 회차 목록 ── */
+        .chapter-section {}
+        .chapter-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 0.5px solid var(--border);
+        }
+        .chapter-count {
+            font-family: var(--sans);
+            font-size: 13px;
+            color: var(--ink3);
+        }
+        .sort-btn {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: none;
+            border: 0.5px solid var(--border);
+            border-radius: 8px;
+            padding: 5px 11px;
+            font-family: var(--sans);
+            font-size: 12px;
+            color: var(--ink2);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .sort-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        .chapter-list { display: flex; flex-direction: column; gap: 2px; }
+        .chapter-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 13px 14px;
+            border-radius: 8px;
+            text-decoration: none;
+            cursor: pointer;
+            transition: background 0.12s;
+            border: 0.5px solid transparent;
+        }
+        .chapter-item:hover {
+            background: var(--paper);
+            border-color: var(--border);
+        }
+        .chapter-num {
+            font-family: var(--sans);
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--accent);
+            min-width: 32px;
+            letter-spacing: 0.04em;
+        }
+        .chapter-title {
+            font-family: var(--serif);
+            font-size: 15px;
+            color: var(--ink);
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .chapter-arrow {
+            font-size: 11px;
+            color: var(--ink3);
+            opacity: 0;
+            transition: opacity 0.12s;
+        }
+        .chapter-item:hover .chapter-arrow { opacity: 1; }
+
+        /* ── 스켈레톤 ── */
+        .skeleton-aside { display: flex; flex-direction: column; gap: 12px; }
+        .skeleton-cover {
+            width: 100%;
+            aspect-ratio: 10 / 16;
+            border-radius: 12px;
+            background: linear-gradient(90deg, var(--paper-back) 25%, var(--border) 50%, var(--paper-back) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.4s infinite;
+        }
+        .skeleton-line {
+            height: 14px;
+            border-radius: 6px;
+            background: linear-gradient(90deg, var(--paper-back) 25%, var(--border) 50%, var(--paper-back) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.4s infinite;
+        }
+        .skeleton-line.short { width: 60%; }
+        .skeleton-line.btn { height: 44px; border-radius: 10px; margin-top: 4px; }
+        .skeleton-ch { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+        .skeleton-ch-item {
+            height: 46px;
+            border-radius: 8px;
+            background: linear-gradient(90deg, var(--paper-back) 25%, var(--border) 50%, var(--paper-back) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.4s infinite;
+        }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        @media (max-width: 640px) {
+            .toc-wrap { grid-template-columns: 1fr; gap: 32px; padding: 28px 20px 60px; }
+            .book-aside { position: static; display: grid; grid-template-columns: 140px 1fr; gap: 20px; }
+            .book-cover-wrap { margin-bottom: 0; }
+            .site-header { padding: 0 20px; }
+        }
+    </style>
+</head>
+<body>
+
+<header class="site-header">
+    <a href="index.html" class="back-btn">
+        <i class="fa-solid fa-chevron-left" style="font-size:11px;"></i> 홈
+    </a>
+    <span class="header-title" id="header-title">목차</span>
+</header>
+
+<main class="toc-wrap" id="toc-wrap">
+    <!-- 스켈레톤 -->
+    <div class="skeleton-aside" id="skeleton-aside">
+        <div class="skeleton-cover"></div>
+        <div class="skeleton-line" style="width:80%"></div>
+        <div class="skeleton-line short"></div>
+        <div class="skeleton-line btn"></div>
+    </div>
+    <div class="skeleton-ch" id="skeleton-ch">
+        <div class="skeleton-ch-item"></div>
+        <div class="skeleton-ch-item"></div>
+        <div class="skeleton-ch-item"></div>
+        <div class="skeleton-ch-item"></div>
+        <div class="skeleton-ch-item"></div>
+    </div>
+
+    <!-- 실제 콘텐츠 -->
+    <aside class="book-aside" id="book-aside" style="display:none;">
+        <div class="book-cover-wrap">
+            <img class="book-cover-img" id="book-cover" src="" alt=""
+                onerror="this.style.display='none';document.getElementById('cover-placeholder').style.display='flex'">
+            <div class="book-cover-placeholder" id="cover-placeholder" style="display:none;">❧</div>
+        </div>
+        <div class="book-title" id="book-title"></div>
+        <div class="book-author" id="book-author"></div>
+        <a class="start-btn" id="start-btn" href="#">
+            <i class="fa-solid fa-book-open"></i> 첫 화 보기
+        </a>
+    </aside>
+
+    <section class="chapter-section" id="chapter-section" style="display:none;">
+        <div class="chapter-header">
+            <span class="chapter-count" id="chapter-count">전체 0화</span>
+            <button class="sort-btn" id="sort-btn" onclick="toggleSort()">
+                <i class="fa-solid fa-arrow-down-wide-short"></i>
+                <span id="sort-label">첫화부터</span>
+            </button>
+        </div>
+        <div class="chapter-list" id="chapter-list"></div>
+    </section>
+</main>
+
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+<script src="js/app.js"></script>
+<script>
+let currentBook = null;
+let sortAsc = true; // true = 첫화부터, false = 최신화부터
+
+function toggleSort() {
+    sortAsc = !sortAsc;
+    document.getElementById('sort-label').textContent = sortAsc ? '첫화부터' : '최신화부터';
+    renderChapterList();
+}
+
+function renderChapterList() {
+    if (!currentBook) return;
+    const chapters = [...(currentBook.chapters || [])];
+    if (!sortAsc) chapters.reverse();
+
+    const list = document.getElementById('chapter-list');
+    const bookId = currentBook.id;
+
+    list.innerHTML = chapters.map((ch, displayIdx) => {
+        const realIdx = sortAsc ? displayIdx : chapters.length - 1 - displayIdx;
+        const url = buildUrl('viewer.html', { id: bookId, ch: realIdx });
+        return `
+        <a class="chapter-item" href="${url}">
+            <span class="chapter-num">${realIdx + 1}화</span>
+            <span class="chapter-title">${ch.title || '제목 없음'}</span>
+            <i class="fa-solid fa-chevron-right chapter-arrow"></i>
+        </a>`;
+    }).join('');
+}
+
+(async function() {
+    const bookId = getParam('id');
+    if (!bookId) { location.href = 'index.html'; return; }
+
+    const db = await initFirebase();
+    if (!db) return;
+
+    const book = await loadBook(db, bookId);
+
+    // 스켈레톤 제거
+    document.getElementById('skeleton-aside').style.display = 'none';
+    document.getElementById('skeleton-ch').style.display = 'none';
+
+    if (!book) {
+        showToast('작품을 찾을 수 없습니다.', 'error');
+        setTimeout(() => location.href = 'index.html', 1500);
+        return;
+    }
+
+    currentBook = book;
+
+    // 헤더
+    document.getElementById('header-title').textContent = book.title || '목차';
+    document.title = `${book.title} — 주남 유니버스`;
+
+    // 표지
+    const coverUrl = convertImageUrl(
+        book.coverUrlWebnovel || book.coverUrlStandard || book.coverUrlTablet || book.coverUrl || ''
+    );
+    const coverImg = document.getElementById('book-cover');
+    if (coverUrl) {
+        coverImg.src = coverUrl;
+        coverImg.alt = book.title;
+    } else {
+        coverImg.style.display = 'none';
+        document.getElementById('cover-placeholder').style.display = 'flex';
+    }
+
+    document.getElementById('book-title').textContent = book.title || '제목 없음';
+    document.getElementById('book-author').textContent = book.author ? `${book.author} 지음` : '';
+
+    // 첫 화 버튼
+    const firstUrl = buildUrl('viewer.html', { id: bookId, ch: 0 });
+    document.getElementById('start-btn').href = firstUrl;
+
+    // 회차 수
+    const chapters = book.chapters || [];
+    document.getElementById('chapter-count').textContent = `전체 ${chapters.length}화`;
+
+    // 표시
+    document.getElementById('book-aside').style.display = '';
+    document.getElementById('chapter-section').style.display = '';
+
+    renderChapterList();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>뷰어 — 주남 유니버스</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;500;700&family=Noto+Sans+KR:wght@300;400;500;700&family=Song+Myung&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            background: var(--bg);
+        }
+
+        /* ════════════════════════════════
+           TOP BAR
+        ════════════════════════════════ */
+        #topbar {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: 52px;
+            background: var(--paper);
+            border-bottom: 0.5px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            gap: 12px;
+            z-index: 100;
+        }
+        .tb-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+        .tb-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+        .tb-icon-btn {
+            width: 34px; height: 34px;
+            border: none; background: none; cursor: pointer;
+            border-radius: 8px;
+            color: var(--ink2);
+            font-size: 15px;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.15s, color 0.15s;
+            flex-shrink: 0;
+        }
+        .tb-icon-btn:hover { background: var(--border); color: var(--accent); }
+
+        .tb-book-info {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+        .tb-book-name {
+            font-family: var(--serif);
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--ink);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .tb-chapter-name {
+            font-family: var(--sans);
+            font-size: 11px;
+            color: var(--ink3);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .tb-sep {
+            width: 0.5px;
+            height: 20px;
+            background: var(--border);
+            margin: 0 4px;
+        }
+
+        .tb-nav-btn {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            height: 32px;
+            padding: 0 12px;
+            border: 0.5px solid var(--border);
+            border-radius: 8px;
+            background: none;
+            cursor: pointer;
+            font-family: var(--sans);
+            font-size: 12px;
+            color: var(--ink2);
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .tb-nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .tb-nav-btn:disabled { opacity: 0.25; pointer-events: none; }
+
+        /* 뷰모드 토글 버튼 */
+        .view-mode-btn {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            height: 32px;
+            padding: 0 12px;
+            border: 0.5px solid var(--border);
+            border-radius: 8px;
+            background: none;
+            cursor: pointer;
+            font-family: var(--sans);
+            font-size: 12px;
+            color: var(--ink2);
+            transition: all 0.15s;
+        }
+        .view-mode-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .view-mode-btn.active { background: var(--accent); border-color: var(--accent); color: var(--paper); }
+
+        /* ════════════════════════════════
+           뷰어 무대
+        ════════════════════════════════ */
+        #viewer-stage {
+            position: fixed;
+            top: 52px; left: 0; right: 0; bottom: 0;
+            overflow: hidden;
+        }
+
+        /* ════════════════════════════════
+           가로 모드 (SPREAD)
+        ════════════════════════════════ */
+        #spread-viewer {
+            width: 100%; height: 100%;
+            background: var(--bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        /* 책 몸체 */
+        .spread-book {
+            display: flex;
+            height: calc(100% - 48px);
+            max-height: 900px;
+            width: calc(100% - 120px);
+            max-width: 1200px;
+            background: var(--paper);
+            box-shadow: 0 20px 60px -10px rgba(0,0,0,0.22), 0 6px 20px -4px rgba(0,0,0,0.12);
+            border-radius: 4px 4px 2px 2px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 중간 세로선 (책 접힌 부분) */
+        .spread-book::after {
+            content: '';
+            position: absolute;
+            top: 0; bottom: 0;
+            left: 50%;
+            width: 1px;
+            background: linear-gradient(to bottom, var(--border), rgba(221,213,192,0.3));
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        /* 좌/우 쪽 */
+        .spread-page {
+            flex: 1;
+            height: 100%;
+            overflow: hidden;
+            position: relative;
+            background: var(--paper);
+        }
+        .spread-page-content {
+            width: 100%;
+            height: 100%;
+            padding: 52px 56px 52px 52px;
+            overflow: hidden;
+        }
+        .spread-page:last-child .spread-page-content {
+            padding: 52px 52px 52px 56px;
+        }
+        .spread-page-content .prose {
+            font-size: 17px;
+            line-height: 1.9;
+        }
+        .spread-page-content .prose p { text-indent: 1em; margin-bottom: 0.75em; }
+        .spread-page-content .prose p:first-child { text-indent: 0; }
+
+        /* 페이지 번호 (좌 하단 / 우 하단) */
+        .spread-page-num {
+            position: absolute;
+            bottom: 22px;
+            font-family: var(--sans);
+            font-size: 11px;
+            color: var(--ink3);
+        }
+        .spread-page:first-child .spread-page-num { left: 52px; }
+        .spread-page:last-child .spread-page-num { right: 52px; }
+
+        /* 챕터 헤더 (첫 펼침면 좌측에만) */
+        .ch-header-spread {
+            text-align: left;
+            margin-bottom: 36px;
+            padding-bottom: 24px;
+            border-bottom: 0.5px solid var(--border);
+        }
+        .ch-header-spread .ch-number {
+            font-family: var(--sans);
+            font-size: 10px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 10px;
+        }
+        .ch-header-spread .ch-title {
+            font-family: var(--serif);
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--ink);
+            line-height: 1.35;
+        }
+
+        /* 화살표 버튼 */
+        .spread-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 44px; height: 72px;
+            border: none;
+            background: rgba(253,250,243,0.9);
+            border: 0.5px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            color: var(--ink2);
+            font-size: 18px;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.15s;
+            backdrop-filter: blur(4px);
+            z-index: 20;
+        }
+        .spread-arrow:hover { background: var(--paper); color: var(--accent); border-color: var(--accent); }
+        .spread-arrow:disabled { opacity: 0.2; pointer-events: none; }
+        #arrow-prev { left: 20px; }
+        #arrow-next { right: 20px; }
+
+        /* 진행 바 */
+        #spread-progress {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 2px;
+            background: var(--border);
+        }
+        #spread-progress-fill {
+            height: 100%;
+            background: var(--accent);
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        /* ════════════════════════════════
+           세로 모드 (SCROLL)
+        ════════════════════════════════ */
+        #scroll-viewer {
+            width: 100%; height: 100%;
+            overflow-y: auto;
+            overflow-x: hidden;
+            display: none;
+            background: var(--bg);
+        }
+
+        .scroll-inner {
+            max-width: 680px;
+            margin: 0 auto;
+            padding: 52px 32px 100px;
+        }
+
+        .ch-header-scroll {
+            text-align: center;
+            margin-bottom: 44px;
+            padding-bottom: 32px;
+            border-bottom: 0.5px solid var(--border);
+        }
+        .ch-header-scroll .ch-number {
+            font-family: var(--sans);
+            font-size: 10px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 12px;
+        }
+        .ch-header-scroll .ch-title {
+            font-family: var(--serif);
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--ink);
+            line-height: 1.35;
+        }
+        .ch-header-scroll .ch-dot {
+            margin-top: 16px;
+            color: var(--accent2);
+            font-size: 14px;
+            letter-spacing: 8px;
+        }
+
+        .scroll-prose .prose {
+            font-size: 17px;
+            line-height: 1.9;
+        }
+        .scroll-prose .prose p { margin-bottom: 0.85em; }
+
+        /* 스크롤 진행 바 */
+        #scroll-progress-bar {
+            position: fixed;
+            top: 52px; left: 0;
+            height: 2px;
+            background: var(--accent);
+            width: 0%;
+            z-index: 99;
+            transition: width 0.08s linear;
+        }
+
+        /* 스크롤 하단 네비 */
+        .scroll-nav-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-top: 60px;
+            padding-top: 24px;
+            border-top: 0.5px solid var(--border);
+        }
+        .scroll-nav-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 18px;
+            border: 0.5px solid var(--border);
+            border-radius: 10px;
+            background: var(--paper);
+            cursor: pointer;
+            font-family: var(--sans);
+            font-size: 13px;
+            color: var(--ink2);
+            text-decoration: none;
+            transition: all 0.15s;
+        }
+        .scroll-nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .scroll-nav-btn:disabled,
+        .scroll-nav-btn.disabled { opacity: 0.25; pointer-events: none; }
+        .scroll-chapter-end {
+            font-family: var(--sans);
+            font-size: 12px;
+            color: var(--ink3);
+            text-align: center;
+            flex: 1;
+        }
+
+        /* ════════════════════════════════
+           공통 유틸
+        ════════════════════════════════ */
+        /* 측정용 숨김 박스 */
+        #measure-box {
+            position: fixed;
+            left: -99999px;
+            top: 0;
+            visibility: hidden;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        /* 로딩 */
+        #loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: var(--paper);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            flex-direction: column;
+            gap: 16px;
+            font-family: var(--sans);
+            font-size: 13px;
+            color: var(--ink3);
+        }
+        .loading-spinner {
+            width: 28px; height: 28px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<!-- 로딩 -->
+<div id="loading-overlay">
+    <div class="loading-spinner"></div>
+    <span>불러오는 중...</span>
+</div>
+
+<!-- 상단 바 -->
+<div id="topbar">
+    <div class="tb-left">
+        <button class="tb-icon-btn" onclick="goToToc()" title="목차">
+            <i class="fa-solid fa-list"></i>
+        </button>
+        <div class="book-info" style="display:flex;flex-direction:column;min-width:0;">
+            <div class="tb-book-name" id="tb-book-name">—</div>
+            <div class="tb-chapter-name" id="tb-chapter-name">—</div>
+        </div>
+    </div>
+    <div class="tb-right">
+        <button class="view-mode-btn" id="view-mode-btn" onclick="toggleViewMode()" title="뷰 모드 전환">
+            <i class="fa-solid fa-scroll" id="view-mode-icon"></i>
+            <span id="view-mode-label">세로</span>
+        </button>
+        <div class="tb-sep"></div>
+        <button class="tb-nav-btn" id="btn-prev-ch" onclick="goChapter(-1)" disabled>
+            <i class="fa-solid fa-chevron-left" style="font-size:10px;"></i> 이전화
+        </button>
+        <button class="tb-nav-btn" id="btn-next-ch" onclick="goChapter(1)">
+            다음화 <i class="fa-solid fa-chevron-right" style="font-size:10px;"></i>
+        </button>
+    </div>
+</div>
+
+<!-- 뷰어 무대 -->
+<div id="viewer-stage">
+
+    <!-- 가로 모드 -->
+    <div id="spread-viewer">
+        <button class="spread-arrow" id="arrow-prev" onclick="spreadGo(-1)">‹</button>
+        <div class="spread-book" id="spread-book">
+            <div class="spread-page" id="spread-left">
+                <div class="spread-page-content" id="spread-left-content"></div>
+                <div class="spread-page-num" id="spread-left-num"></div>
+            </div>
+            <div class="spread-page" id="spread-right">
+                <div class="spread-page-content" id="spread-right-content"></div>
+                <div class="spread-page-num" id="spread-right-num"></div>
+            </div>
+        </div>
+        <button class="spread-arrow" id="arrow-next" onclick="spreadGo(1)">›</button>
+        <div id="spread-progress"><div id="spread-progress-fill"></div></div>
+    </div>
+
+    <!-- 세로 모드 -->
+    <div id="scroll-viewer">
+        <div id="scroll-progress-bar"></div>
+        <div class="scroll-inner">
+            <div class="ch-header-scroll">
+                <div class="ch-number" id="scroll-ch-number"></div>
+                <div class="ch-title" id="scroll-ch-title"></div>
+                <div class="ch-dot">· · ·</div>
+            </div>
+            <div class="scroll-prose" id="scroll-prose"></div>
+            <div class="scroll-nav-footer">
+                <button class="scroll-nav-btn" id="scroll-prev-btn" onclick="goChapter(-1)">
+                    <i class="fa-solid fa-chevron-left" style="font-size:10px;"></i> 이전화
+                </button>
+                <div class="scroll-chapter-end" id="scroll-chapter-end"></div>
+                <button class="scroll-nav-btn" id="scroll-next-btn" onclick="goChapter(1)">
+                    다음화 <i class="fa-solid fa-chevron-right" style="font-size:10px;"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 측정용 숨김 박스 -->
+<div id="measure-box"></div>
+
+<!-- YouTube BGM -->
+<div style="position:absolute;width:1px;height:1px;left:-9999px;overflow:hidden;opacity:0;">
+    <div id="yt-audio-player"></div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+<script src="https://www.youtube.com/iframe_api"></script>
+<script src="js/app.js"></script>
+<script>
+/* ════════════════════════════════════════════
+   상태
+════════════════════════════════════════════ */
+let bookData = null;
+let bookId = '';
+let currentChIdx = 0;
+let viewMode = 'spread'; // 'spread' | 'scroll'
+
+// 가로 모드 상태
+let spreadPages = [];   // 분할된 HTML 배열
+let spreadCurSpread = 0; // 현재 펼침 인덱스 (spread = 좌우 2페이지 세트)
+
+// BGM
+let ytAudioPlayer = null;
+let sunoAudioObject = null;
+let currentPlayingMusicId = null;
+let currentPlayingBtn = null;
+let currentPlayingType = null;
+let currentVolume = 15;
+
+/* ════════════════════════════════════════════
+   초기화
+════════════════════════════════════════════ */
+window.onload = async function() {
+    bookId = getParam('id');
+    const chParam = getParam('ch');
+    currentChIdx = chParam ? parseInt(chParam) : 0;
+
+    if (!bookId) { location.href = 'index.html'; return; }
+
+    const db = await initFirebase();
+    if (!db) { hideLoading(); return; }
+
+    bookData = await loadBook(db, bookId);
+    if (!bookData || !bookData.chapters || !bookData.chapters.length) {
+        hideLoading();
+        showToast('작품을 불러올 수 없습니다.', 'error');
+        return;
+    }
+
+    currentChIdx = Math.max(0, Math.min(currentChIdx, bookData.chapters.length - 1));
+
+    updateTopbar();
+    loadChapter(currentChIdx);
+    hideLoading();
+
+    // 창 크기 변경 시 재분할
+    window.addEventListener('resize', debounce(() => {
+        if (viewMode === 'spread') buildSpreadPages();
+    }, 300));
+};
+
+function hideLoading() {
+    const ov = document.getElementById('loading-overlay');
+    if (ov) { ov.style.opacity = '0'; ov.style.transition = 'opacity 0.3s'; setTimeout(() => ov.remove(), 300); }
+}
+
+function debounce(fn, ms) {
+    let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+/* ════════════════════════════════════════════
+   상단 바
+════════════════════════════════════════════ */
+function updateTopbar() {
+    if (!bookData) return;
+    const ch = bookData.chapters[currentChIdx];
+    document.getElementById('tb-book-name').textContent = bookData.title || '';
+    document.getElementById('tb-chapter-name').textContent = ch ? `제 ${currentChIdx + 1}화 — ${ch.title}` : '';
+    document.title = ch ? `${currentChIdx + 1}화 ${ch.title} — ${bookData.title}` : bookData.title;
+
+    document.getElementById('btn-prev-ch').disabled = currentChIdx <= 0;
+    document.getElementById('btn-next-ch').disabled = currentChIdx >= bookData.chapters.length - 1;
+}
+
+/* ════════════════════════════════════════════
+   챕터 이동
+════════════════════════════════════════════ */
+function goChapter(dir) {
+    const next = currentChIdx + dir;
+    if (next < 0 || next >= bookData.chapters.length) return;
+    currentChIdx = next;
+
+    // URL 갱신 (history pushState)
+    const url = buildUrl('viewer.html', { id: bookId, ch: currentChIdx });
+    history.pushState({}, '', url);
+
+    loadChapter(currentChIdx);
+    saveBookmark(bookId, currentChIdx, 0);
+}
+
+function goToToc() {
+    location.href = buildUrl('toc.html', { id: bookId });
+}
+
+function loadChapter(idx) {
+    currentChIdx = idx;
+    updateTopbar();
+    resetMusicButtons();
+
+    if (viewMode === 'spread') {
+        buildSpreadPages();
+    } else {
+        buildScrollView();
+    }
+}
+
+/* ════════════════════════════════════════════
+   뷰 모드 전환
+════════════════════════════════════════════ */
+function toggleViewMode() {
+    viewMode = viewMode === 'spread' ? 'scroll' : 'spread';
+
+    const spreadEl = document.getElementById('spread-viewer');
+    const scrollEl = document.getElementById('scroll-viewer');
+    const btn = document.getElementById('view-mode-btn');
+    const icon = document.getElementById('view-mode-icon');
+    const label = document.getElementById('view-mode-label');
+
+    if (viewMode === 'spread') {
+        spreadEl.style.display = 'flex';
+        scrollEl.style.display = 'none';
+        icon.className = 'fa-solid fa-scroll';
+        label.textContent = '세로';
+        btn.classList.remove('active');
+        buildSpreadPages();
+    } else {
+        spreadEl.style.display = 'none';
+        scrollEl.style.display = 'block';
+        icon.className = 'fa-solid fa-book-open';
+        label.textContent = '가로';
+        btn.classList.add('active');
+        buildScrollView();
+    }
+}
+
+/* ════════════════════════════════════════════
+   가로 모드: 페이지 분할 & 렌더링
+════════════════════════════════════════════ */
+const PROSE_FONT = 17;
+const PROSE_LH = 1.9;
+
+function getPageDimensions() {
+    const book = document.getElementById('spread-book');
+    const rect = book.getBoundingClientRect();
+    // 한 쪽 내용 영역 (padding 제외)
+    const pageW = rect.width / 2 - 108; // 좌우 padding 합 52+56
+    const pageH = rect.height - 104;    // 상하 padding 합 52+52
+    return { w: Math.max(200, pageW), h: Math.max(200, pageH) };
+}
+
+function getMeasureBox() {
+    const box = document.getElementById('measure-box');
+    const dim = getPageDimensions();
+    box.style.width = dim.w + 'px';
+    box.style.height = dim.h + 'px';
+    box.style.fontFamily = 'Noto Serif KR, Song Myung, serif';
+    box.style.fontSize = PROSE_FONT + 'px';
+    box.style.lineHeight = PROSE_LH;
+    box.style.wordBreak = 'keep-all';
+    box.style.overflowWrap = 'break-word';
+    box.style.overflow = 'hidden';
+    box.style.boxSizing = 'border-box';
+    return box;
+}
+
+function rawFits(html) {
+    const box = getMeasureBox();
+    box.innerHTML = `<div class="prose" style="font-size:${PROSE_FONT}px;line-height:${PROSE_LH};">${html}</div>`;
+    return box.scrollHeight <= box.clientHeight + 2;
+}
+
+function splitChapterToPages(content) {
+    const allHtml = formatProse(content);
+    // DOM 파싱하여 노드 단위로 분할
+    const temp = document.createElement('div');
+    temp.innerHTML = allHtml;
+    const nodes = Array.from(temp.childNodes);
+
+    const pages = [];
+    let current = '';
+
+    for (const node of nodes) {
+        const html = node.outerHTML || '';
+        if (!html) continue;
+
+        const candidate = current + html;
+        if (rawFits(candidate)) {
+            current = candidate;
+        } else {
+            if (current) pages.push(current);
+            // 이 노드 하나가 페이지보다 크면 (특수 블록 등) 단독 페이지
+            if (rawFits(html)) {
+                current = html;
+            } else {
+                // 단락을 글자 단위로 더 쪼개야 하는 경우 (p 태그)
+                if (node.tagName === 'P') {
+                    const chunks = splitParagraph(node, current);
+                    chunks.forEach((chunk, i) => {
+                        if (i < chunks.length - 1) pages.push(chunk);
+                        else current = chunk;
+                    });
+                } else {
+                    pages.push(html);
+                    current = '';
+                }
+            }
+        }
+    }
+    if (current.trim()) pages.push(current);
+    return pages.length ? pages : [''];
+}
+
+function splitParagraph(pNode, existingHtml) {
+    const text = pNode.textContent || '';
+    const className = pNode.className || '';
+    const pages = [];
+
+    let lo = 1, hi = text.length, best = 0;
+    while (lo <= hi) {
+        const mid = Math.floor((lo + hi) / 2);
+        const candidate = existingHtml + `<p class="${className}">${text.slice(0, mid)}</p>`;
+        if (rawFits(candidate)) { best = mid; lo = mid + 1; }
+        else hi = mid - 1;
+    }
+
+    if (best > 0 && best < text.length) {
+        pages.push(existingHtml + `<p class="${className}">${text.slice(0, best)}</p>`);
+        pages.push(`<p class="${className}">${text.slice(best)}</p>`);
+    } else {
+        pages.push(existingHtml + pNode.outerHTML);
+    }
+    return pages;
+}
+
+function buildSpreadPages() {
+    const ch = bookData?.chapters[currentChIdx];
+    if (!ch) return;
+
+    // 페이지 분할 (한 쪽 기준)
+    spreadPages = splitChapterToPages(ch.content);
+    spreadCurSpread = 0;
+
+    renderSpread(0);
+}
+
+function renderSpread(spreadIdx) {
+    spreadCurSpread = spreadIdx;
+    const leftPageIdx = spreadIdx * 2;
+    const rightPageIdx = leftPageIdx + 1;
+    const ch = bookData.chapters[currentChIdx];
+    const totalPages = spreadPages.length;
+    const totalSpreads = Math.ceil(totalPages / 2);
+
+    // 좌측
+    const leftEl = document.getElementById('spread-left-content');
+    if (leftPageIdx === 0) {
+        // 첫 펼침 좌측에 챕터 헤더
+        leftEl.innerHTML = `
+            <div class="ch-header-spread">
+                <div class="ch-number">제 ${currentChIdx + 1}화</div>
+                <div class="ch-title">${ch.title}</div>
+            </div>
+            <div class="prose" style="font-size:${PROSE_FONT}px;line-height:${PROSE_LH};">${spreadPages[0] || ''}</div>
+        `;
+    } else {
+        leftEl.innerHTML = `<div class="prose" style="font-size:${PROSE_FONT}px;line-height:${PROSE_LH};">${spreadPages[leftPageIdx] || ''}</div>`;
+    }
+
+    // 우측
+    const rightEl = document.getElementById('spread-right-content');
+    if (rightPageIdx < totalPages) {
+        rightEl.innerHTML = `<div class="prose" style="font-size:${PROSE_FONT}px;line-height:${PROSE_LH};">${spreadPages[rightPageIdx]}</div>`;
+    } else {
+        // 마지막 펼침면 우측이 비어있으면 챕터 끝 표시
+        rightEl.innerHTML = `<div class="prose"><div class="chapter-end-marker">— 제 ${currentChIdx + 1}화 끝 —</div></div>`;
+    }
+
+    // 페이지 번호
+    document.getElementById('spread-left-num').textContent = `${leftPageIdx + 1}`;
+    document.getElementById('spread-right-num').textContent = rightPageIdx < totalPages ? `${rightPageIdx + 1}` : '';
+
+    // 화살표
+    document.getElementById('arrow-prev').disabled = spreadIdx <= 0 && currentChIdx <= 0;
+    document.getElementById('arrow-next').disabled = spreadIdx >= totalSpreads - 1 && currentChIdx >= bookData.chapters.length - 1;
+
+    // 진행 바
+    const pct = totalSpreads > 1 ? (spreadIdx / (totalSpreads - 1)) * 100 : 100;
+    document.getElementById('spread-progress-fill').style.width = pct + '%';
+
+    // autoplay
+    setTimeout(() => triggerAutoplay(leftEl), 120);
+    setTimeout(() => triggerAutoplay(rightEl), 120);
+}
+
+function spreadGo(dir) {
+    const totalSpreads = Math.ceil(spreadPages.length / 2);
+    const next = spreadCurSpread + dir;
+
+    if (next >= 0 && next < totalSpreads) {
+        renderSpread(next);
+    } else if (dir > 0 && currentChIdx < bookData.chapters.length - 1) {
+        goChapter(1);
+    } else if (dir < 0 && currentChIdx > 0) {
+        goChapter(-1);
+    }
+}
+
+// 키보드 네비게이션
+document.addEventListener('keydown', e => {
+    if (viewMode === 'spread') {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') spreadGo(1);
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') spreadGo(-1);
+    }
+});
+
+// 마우스휠로 넘기기 (가로 모드)
+let wheelCooldown = false;
+document.getElementById('spread-viewer').addEventListener('wheel', e => {
+    if (viewMode !== 'spread' || wheelCooldown) return;
+    wheelCooldown = true;
+    setTimeout(() => wheelCooldown = false, 600);
+    if (e.deltaY > 0 || e.deltaX > 0) spreadGo(1);
+    else spreadGo(-1);
+}, { passive: true });
+
+/* ════════════════════════════════════════════
+   세로 모드
+════════════════════════════════════════════ */
+function buildScrollView() {
+    const ch = bookData?.chapters[currentChIdx];
+    if (!ch) return;
+
+    document.getElementById('scroll-ch-number').textContent = `제 ${currentChIdx + 1}화`;
+    document.getElementById('scroll-ch-title').textContent = ch.title;
+    document.getElementById('scroll-chapter-end').textContent = `— 제 ${currentChIdx + 1}화 끝 —`;
+
+    document.getElementById('scroll-prose').innerHTML =
+        `<div class="prose" style="font-size:${PROSE_FONT}px;line-height:${PROSE_LH};">${formatProse(ch.content)}<div class="chapter-end-marker">— 제 ${currentChIdx + 1}화 끝 —</div></div>`;
+
+    document.getElementById('scroll-prev-btn').disabled = currentChIdx <= 0;
+    document.getElementById('scroll-next-btn').disabled = currentChIdx >= bookData.chapters.length - 1;
+
+    const scrollEl = document.getElementById('scroll-viewer');
+    scrollEl.scrollTop = 0;
+
+    // 스크롤 진행 바
+    scrollEl.onscroll = () => {
+        const sh = scrollEl.scrollHeight - scrollEl.clientHeight;
+        const pct = sh > 0 ? (scrollEl.scrollTop / sh) * 100 : 0;
+        document.getElementById('scroll-progress-bar').style.width = pct + '%';
+    };
+
+    setTimeout(() => triggerAutoplay(document.getElementById('scroll-prose')), 150);
+}
+
+/* ════════════════════════════════════════════
+   BGM
+════════════════════════════════════════════ */
+function triggerAutoplay(container) {
+    if (!container) return;
+    const autoBtn = container.querySelector('.music-link[data-autoplay="true"]');
+    if (!autoBtn || currentPlayingMusicId) return;
+    const url = autoBtn.getAttribute('data-music-url');
+    if (url) togglePlayMusic(url, autoBtn);
+}
+
+function resetMusicButtons() {
+    document.querySelectorAll('.music-link').forEach(btn => {
+        btn.classList.remove('playing');
+        const i = btn.querySelector('.fa-compact-disc');
+        if (i) i.style.animation = '';
+    });
+    if (sunoAudioObject) { sunoAudioObject.pause(); sunoAudioObject = null; }
+    currentPlayingMusicId = null; currentPlayingBtn = null; currentPlayingType = null;
+}
+
+function togglePlayMusic(url, btn) {
+    const vid = extractVideoId(url), sid = extractSunoId(url);
+    if (!vid && !sid) { showToast('지원하지 않는 링크입니다.', 'error'); return; }
+    const isSuno = !!sid, tid = isSuno ? sid : vid;
+
+    if (currentPlayingMusicId === tid) {
+        if (isSuno && sunoAudioObject) {
+            if (sunoAudioObject.paused) sunoAudioObject.play();
+            else sunoAudioObject.pause();
+        } else if (ytAudioPlayer) {
+            const s = ytAudioPlayer.getPlayerState();
+            if (s === YT.PlayerState.PLAYING) ytAudioPlayer.pauseVideo();
+            else ytAudioPlayer.playVideo();
+        }
+        return;
+    }
+
+    resetMusicButtons();
+    currentPlayingMusicId = tid; currentPlayingBtn = btn; currentPlayingType = isSuno ? 'suno' : 'youtube';
+    if (btn) btn.classList.add('playing');
+
+    if (isSuno) {
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sid);
+        if (!isUUID) { resetMusicButtons(); showToast('Suno 전체 URL을 사용해 주세요.', 'error'); return; }
+        if (ytAudioPlayer?.pauseVideo) ytAudioPlayer.pauseVideo();
+        sunoAudioObject = new Audio(`https://cdn1.suno.ai/${sid}.mp3`);
+        sunoAudioObject.volume = currentVolume / 100;
+        sunoAudioObject.play().catch(() => resetMusicButtons());
+        sunoAudioObject.onended = resetMusicButtons;
+    } else {
+        if (ytAudioPlayer?.cueVideoById) {
+            ytAudioPlayer.cueVideoById(vid);
+            setTimeout(() => { ytAudioPlayer.setVolume(currentVolume); ytAudioPlayer.playVideo(); }, 150);
+        } else {
+            showToast('플레이어 준비 중입니다. 잠시 후 다시 눌러주세요.', 'error');
+            resetMusicButtons();
+        }
+    }
+}
+
+function onYouTubeIframeAPIReady() {
+    ytAudioPlayer = new YT.Player('yt-audio-player', {
+        height: '0', width: '0', videoId: '',
+        playerVars: { autoplay: 0, controls: 0, disablekb: 1, fs: 0, rel: 0 },
+        events: {
+            onStateChange: e => { if (e.data === YT.PlayerState.ENDED) resetMusicButtons(); },
+            onReady: e => e.target.setVolume(currentVolume)
+        }
+    });
+}
+</script>
+</body>
+</html>

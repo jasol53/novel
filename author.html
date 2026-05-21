@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>작가 관리 — 주남 유니버스</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen">
+
+<!-- 비밀번호 잠금 오버레이 -->
+<div id="lock-overlay" class="fixed inset-0 bg-slate-900/95 z-[999] flex items-center justify-center">
+    <div class="bg-white rounded-2xl w-full max-w-sm p-8 shadow-2xl text-center mx-4">
+        <div class="w-16 h-16 bg-indigo-50 text-indigo-500 rounded-full flex items-center justify-center mx-auto mb-5">
+            <i class="fa-solid fa-lock text-2xl"></i>
+        </div>
+        <h2 class="font-bold text-slate-800 text-xl mb-2">작가 전용 페이지</h2>
+        <p class="text-sm text-slate-400 mb-6">비밀번호를 입력하세요</p>
+        <input type="password" id="pw-input" placeholder="비밀번호"
+            class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3 text-center tracking-widest"
+            onkeydown="if(event.key==='Enter') checkPw()">
+        <button onclick="checkPw()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold text-sm transition-all">
+            입장
+        </button>
+        <p class="text-xs text-red-500 mt-3 hidden" id="pw-error">비밀번호가 틀렸습니다.</p>
+    </div>
+</div>
+
+<!-- 메인 UI (잠금 해제 후 표시) -->
+<div id="main-ui" class="hidden">
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md shadow-indigo-200">
+                    <i class="fa-solid fa-pen-nib text-sm"></i>
+                </div>
+                <div>
+                    <span class="font-bold text-slate-800 text-base block leading-none">주남 유니버스</span>
+                    <span class="text-xs text-slate-400">작가 관리 페이지</span>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <a href="index.html" class="text-xs text-slate-400 hover:text-slate-600 transition-colors">← 독자 페이지</a>
+                <div id="db-badge" class="flex items-center px-3 py-1.5 bg-amber-50 text-amber-700 text-xs font-semibold rounded-lg border border-amber-200">
+                    <span class="w-2 h-2 bg-amber-400 rounded-full mr-2 animate-pulse"></span>연결 중...
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl w-full mx-auto px-4 py-6 flex flex-col md:flex-row gap-6">
+
+        <!-- 좌측: 책 정보 + 회차 목록 -->
+        <div class="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4">
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                <h3 class="font-bold text-slate-800 mb-4 flex items-center text-sm">
+                    <i class="fa-solid fa-circle-info text-indigo-500 mr-2"></i>책 기본정보
+                </h3>
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-xs font-bold text-slate-400 block mb-1">도서 제목</label>
+                        <input type="text" id="input-title" value="나의 첫 번째 이야기책" oninput="updateBookInfo()"
+                            class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-slate-400 block mb-1">작가명</label>
+                        <input type="text" id="input-author" value="무명작가" oninput="updateBookInfo()"
+                            class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-slate-400 block mb-1">작품 설명 (시놉시스)</label>
+                        <textarea id="input-desc" oninput="updateBookInfo()"
+                            class="w-full h-24 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none leading-normal"></textarea>
+                    </div>
+                    <div class="border-t border-slate-100 pt-3 space-y-2">
+                        <span class="text-xs font-bold text-indigo-600 block mb-2"><i class="fa-solid fa-image mr-1"></i>표지 이미지</span>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-400 block mb-0.5">① 웹소설 규격 (1:1.6 / 모바일)</label>
+                            <input type="url" id="input-cover-web" placeholder="이미지 URL" oninput="updateBookInfo()"
+                                class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-400 block mb-0.5">② 태블릿 규격 (3:4)</label>
+                            <input type="url" id="input-cover-tab" placeholder="이미지 URL" oninput="updateBookInfo()"
+                                class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-400 block mb-0.5">③ 단행본 규격 (1:1.414)</label>
+                            <input type="url" id="input-cover-std" placeholder="이미지 URL" oninput="updateBookInfo()"
+                                class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex-1 flex flex-col min-h-[300px]">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-slate-800 text-sm flex items-center">
+                        <i class="fa-solid fa-list-ol text-indigo-500 mr-2"></i>회차 목록
+                    </h3>
+                    <span id="ch-count" class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md text-xs font-bold">0화</span>
+                </div>
+                <div id="ch-list" class="flex-1 overflow-y-auto space-y-2 max-h-[280px] pr-1">
+                    <div class="text-center py-8 text-slate-400 text-sm">
+                        <i class="fa-solid fa-box-open text-3xl mb-2 block"></i>
+                        등록된 회차가 없습니다.
+                    </div>
+                </div>
+                <button onclick="saveToCloud()" class="w-full mt-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold text-sm shadow-md shadow-indigo-100 flex items-center justify-center transition-all">
+                    <i class="fa-solid fa-cloud-arrow-up mr-2"></i>클라우드 저장 및 공유
+                </button>
+            </div>
+        </div>
+
+        <!-- 우측: 에디터 -->
+        <div class="flex-1 flex flex-col gap-4">
+            <div id="drop-zone" class="border-2 border-dashed border-indigo-200 bg-indigo-50/30 hover:bg-indigo-50/70 rounded-2xl p-5 text-center cursor-pointer transition-all">
+                <input type="file" id="file-input" class="hidden" accept=".txt">
+                <div class="flex flex-col items-center justify-center" onclick="document.getElementById('file-input').click()">
+                    <i class="fa-solid fa-file-arrow-up text-indigo-400 text-2xl mb-2"></i>
+                    <span class="text-sm text-slate-500 font-medium">TXT 원고 드래그 또는 클릭</span>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col flex-1">
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4">
+                    <input type="text" id="edit-title" placeholder="회차 제목"
+                        class="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-semibold">
+                    <div class="flex items-center gap-2">
+                        <button id="btn-cancel" onclick="resetEditor()" class="hidden h-10 px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-sm font-semibold transition-all">
+                            새 회차 작성
+                        </button>
+                        <button id="btn-submit" onclick="addOrUpdate()"
+                            class="h-10 px-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-all shadow-sm">
+                            이 회차 등록
+                        </button>
+                    </div>
+                </div>
+                <textarea id="edit-content" placeholder="소설 본문을 작성하거나 붙여넣으세요."
+                    class="flex-1 min-h-[320px] p-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-serif resize-none leading-relaxed"></textarea>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- 삭제 확인 모달 -->
+<div id="modal-delete" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl text-center">
+        <div class="w-14 h-14 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fa-solid fa-trash-can text-xl"></i>
+        </div>
+        <h3 class="font-bold text-slate-800 text-lg mb-1">정말 삭제하시겠습니까?</h3>
+        <p class="text-xs text-slate-400 mb-5">삭제된 원고는 복구할 수 없습니다.</p>
+        <div class="flex gap-2">
+            <button onclick="closeDelete(false)" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm">취소</button>
+            <button onclick="closeDelete(true)" class="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-sm">삭제</button>
+        </div>
+    </div>
+</div>
+
+<!-- 공유 링크 모달 -->
+<div id="modal-share" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl text-center">
+        <div class="w-14 h-14 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fa-solid fa-paper-plane text-xl"></i>
+        </div>
+        <h3 class="font-bold text-slate-800 text-lg mb-1">저장 완료!</h3>
+        <div class="flex items-center space-x-1.5 bg-slate-50 p-2.5 border border-slate-200 rounded-xl mb-4 mt-4">
+            <input type="text" id="share-link" readonly class="bg-transparent text-slate-600 text-xs flex-1 outline-none font-semibold truncate">
+            <button onclick="copyLink()" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold">복사</button>
+        </div>
+        <button onclick="document.getElementById('modal-share').classList.add('hidden')" class="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-sm">닫기</button>
+    </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+<script src="js/app.js"></script>
+<script>
+/* ── 비밀번호 ── */
+const AUTHOR_PW = 'jasol53';
+
+function checkPw() {
+    const val = document.getElementById('pw-input').value;
+    if (val === AUTHOR_PW) {
+        document.getElementById('lock-overlay').style.display = 'none';
+        document.getElementById('main-ui').classList.remove('hidden');
+        initAuthor();
+    } else {
+        document.getElementById('pw-error').classList.remove('hidden');
+        document.getElementById('pw-input').value = '';
+        document.getElementById('pw-input').focus();
+    }
+}
+document.getElementById('pw-input').focus();
+
+/* ── 상태 ── */
+const bookState = {
+    title: '나의 첫 번째 이야기책', author: '무명작가', description: '',
+    coverUrlWebnovel: '', coverUrlTablet: '', coverUrlStandard: '',
+    chapters: []
+};
+let editingChId = null;
+let deleteTarget = null;
+let db = null;
+
+async function initAuthor() {
+    db = await initFirebase();
+    setBadge(db ? 'ok' : 'err', db ? '클라우드 연동됨' : '연결 실패');
+    loadLocal();
+    renderChapters();
+    initDrop();
+}
+
+function setBadge(type, text) {
+    const badge = document.getElementById('db-badge');
+    if (!badge) return;
+    const dot = type === 'ok'
+        ? '<span class="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span>'
+        : '<span class="w-2 h-2 bg-rose-500 rounded-full mr-2"></span>';
+    badge.innerHTML = dot + text;
+    badge.className = type === 'ok'
+        ? 'flex items-center px-3 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-lg border border-emerald-200'
+        : 'flex items-center px-3 py-1.5 bg-rose-50 text-rose-700 text-xs font-semibold rounded-lg border border-rose-200';
+}
+
+/* ── 로컬 저장 ── */
+function saveLocal() {
+    localStorage.setItem('joonam_author_book', JSON.stringify(bookState));
+}
+function loadLocal() {
+    const s = localStorage.getItem('joonam_author_book') || localStorage.getItem('newtokkinam_local_book');
+    if (!s) return;
+    try {
+        const p = JSON.parse(s);
+        bookState.title = p.title || '나의 첫 번째 이야기책';
+        bookState.author = p.author || '무명작가';
+        bookState.description = p.description || '';
+        bookState.coverUrlWebnovel = p.coverUrlWebnovel || p.coverUrl || '';
+        bookState.coverUrlTablet = p.coverUrlTablet || '';
+        bookState.coverUrlStandard = p.coverUrlStandard || '';
+        bookState.chapters = p.chapters || [];
+        document.getElementById('input-title').value = bookState.title;
+        document.getElementById('input-author').value = bookState.author;
+        document.getElementById('input-desc').value = bookState.description;
+        document.getElementById('input-cover-web').value = bookState.coverUrlWebnovel;
+        document.getElementById('input-cover-tab').value = bookState.coverUrlTablet;
+        document.getElementById('input-cover-std').value = bookState.coverUrlStandard;
+    } catch(e) {}
+}
+
+function updateBookInfo() {
+    bookState.title = document.getElementById('input-title').value || '제목 없음';
+    bookState.author = document.getElementById('input-author').value || '작가 미상';
+    bookState.description = document.getElementById('input-desc').value || '';
+    bookState.coverUrlWebnovel = convertImageUrl(document.getElementById('input-cover-web').value);
+    bookState.coverUrlTablet = convertImageUrl(document.getElementById('input-cover-tab').value);
+    bookState.coverUrlStandard = convertImageUrl(document.getElementById('input-cover-std').value);
+    saveLocal();
+}
+
+/* ── 드래그 앤 드롭 ── */
+function initDrop() {
+    const dz = document.getElementById('drop-zone');
+    ['dragenter','dragover'].forEach(e => dz.addEventListener(e, ev => { ev.preventDefault(); dz.classList.add('bg-indigo-100'); }));
+    ['dragleave','drop'].forEach(e => dz.addEventListener(e, ev => { ev.preventDefault(); dz.classList.remove('bg-indigo-100'); }));
+    dz.addEventListener('drop', e => { if (e.dataTransfer.files[0]) readTxt(e.dataTransfer.files[0]); });
+    document.getElementById('file-input').addEventListener('change', e => { if (e.target.files[0]) readTxt(e.target.files[0]); });
+}
+function readTxt(file) {
+    const r = new FileReader();
+    r.onload = e => {
+        document.getElementById('edit-title').value = file.name.replace(/\.[^/.]+$/, '');
+        document.getElementById('edit-content').value = e.target.result;
+        showToast(`"${file.name}" 불러옴`);
+    };
+    r.readAsText(file, 'UTF-8');
+}
+
+/* ── 회차 관리 ── */
+function renderChapters() {
+    const list = document.getElementById('ch-list');
+    document.getElementById('ch-count').textContent = `${bookState.chapters.length}화`;
+    if (!bookState.chapters.length) {
+        list.innerHTML = `<div class="text-center py-8 text-slate-400 text-sm"><i class="fa-solid fa-box-open text-3xl mb-2 block"></i>등록된 회차가 없습니다.</div>`;
+        return;
+    }
+    list.innerHTML = bookState.chapters.map((c, i) => {
+        const editing = c.id === editingChId;
+        return `
+        <div class="group flex items-center justify-between p-3 rounded-xl border transition-all ${editing ? 'bg-indigo-50 border-indigo-300' : 'bg-slate-50 border-slate-200'}">
+            <div class="flex-1 truncate cursor-pointer pr-2" onclick="loadToEditor(${i})">
+                <span class="text-xs font-bold text-slate-400 mr-2">${i+1}화</span>
+                <span class="text-sm font-semibold text-slate-700">${c.title}</span>
+                ${editing ? '<span class="ml-2 text-[9px] text-indigo-500 font-bold bg-indigo-100 px-1.5 py-0.5 rounded">수정중</span>' : ''}
+            </div>
+            <div class="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button onclick="moveChapter(${i},-1)" class="w-7 h-7 bg-white hover:bg-slate-200 text-slate-500 rounded-lg flex items-center justify-center border"><i class="fa-solid fa-chevron-up text-[10px]"></i></button>
+                <button onclick="moveChapter(${i},1)" class="w-7 h-7 bg-white hover:bg-slate-200 text-slate-500 rounded-lg flex items-center justify-center border"><i class="fa-solid fa-chevron-down text-[10px]"></i></button>
+                <button onclick="deleteChapter(${i})" class="w-7 h-7 bg-white hover:bg-rose-50 text-rose-500 rounded-lg flex items-center justify-center border border-rose-100"><i class="fa-solid fa-trash-can text-xs"></i></button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function loadToEditor(idx) {
+    const ch = bookState.chapters[idx];
+    editingChId = ch.id;
+    document.getElementById('edit-title').value = ch.title;
+    document.getElementById('edit-content').value = ch.content;
+    document.getElementById('btn-cancel').classList.remove('hidden');
+    document.getElementById('btn-submit').textContent = '이 회차 수정';
+    showToast(`"${ch.title}" 로드됨`, 'info');
+    renderChapters();
+}
+
+function resetEditor() {
+    editingChId = null;
+    document.getElementById('edit-title').value = '';
+    document.getElementById('edit-content').value = '';
+    document.getElementById('btn-cancel').classList.add('hidden');
+    document.getElementById('btn-submit').textContent = '이 회차 등록';
+    renderChapters();
+}
+
+function addOrUpdate() {
+    const t = document.getElementById('edit-title').value.trim();
+    const c = document.getElementById('edit-content').value.trim();
+    if (!t || !c) return showToast('제목과 내용을 채워주세요.', 'error');
+    if (editingChId) {
+        const idx = bookState.chapters.findIndex(ch => ch.id === editingChId);
+        if (idx !== -1) { bookState.chapters[idx] = { ...bookState.chapters[idx], title: t, content: c }; showToast('수정 완료'); }
+    } else {
+        bookState.chapters.push({ id: 'ch_' + Date.now(), title: t, content: c });
+        showToast('등록 완료');
+    }
+    resetEditor(); saveLocal(); renderChapters();
+}
+
+function moveChapter(idx, dir) {
+    const t = idx + dir;
+    if (t < 0 || t >= bookState.chapters.length) return;
+    [bookState.chapters[idx], bookState.chapters[t]] = [bookState.chapters[t], bookState.chapters[idx]];
+    saveLocal(); renderChapters();
+}
+
+function deleteChapter(idx) {
+    deleteTarget = idx;
+    document.getElementById('modal-delete').classList.remove('hidden');
+}
+function closeDelete(ok) {
+    document.getElementById('modal-delete').classList.add('hidden');
+    if (ok && deleteTarget !== null) {
+        const title = bookState.chapters[deleteTarget].title;
+        bookState.chapters.splice(deleteTarget, 1);
+        if (editingChId) { editingChId = null; resetEditor(); }
+        saveLocal(); renderChapters();
+        showToast(`"${title}" 삭제됨`);
+    }
+    deleteTarget = null;
+}
+
+/* ── 클라우드 저장 ── */
+async function saveToCloud() {
+    if (!db) { showToast('클라우드 연결 실패', 'error'); return; }
+    if (!bookState.chapters.length) { showToast('회차를 등록해주세요.', 'error'); return; }
+    showToast('저장 중...', 'info');
+    try {
+        const payload = {
+            title: bookState.title, author: bookState.author,
+            description: bookState.description,
+            coverUrlWebnovel: bookState.coverUrlWebnovel,
+            coverUrlTablet: bookState.coverUrlTablet,
+            coverUrlStandard: bookState.coverUrlStandard,
+            chapters: bookState.chapters,
+            lastUpdated: Date.now()
+        };
+        let bookId = localStorage.getItem('joonam_cloud_id') || localStorage.getItem('newtokkinam_cloud_id');
+        if (bookId) {
+            await db.collection('novels').doc(bookId).set(payload);
+        } else {
+            const doc = await db.collection('novels').add(payload);
+            bookId = doc.id;
+            localStorage.setItem('joonam_cloud_id', bookId);
+        }
+        const url = `${location.origin}/toc.html?id=${bookId}`;
+        document.getElementById('share-link').value = url;
+        document.getElementById('modal-share').classList.remove('hidden');
+        showToast('저장 완료!');
+    } catch(e) {
+        showToast('저장 실패: ' + e.message, 'error');
+    }
+}
+
+function copyLink() {
+    const inp = document.getElementById('share-link');
+    inp.select(); inp.setSelectionRange(0, 99999);
+    document.execCommand('copy');
+    showToast('링크 복사됨!');
+}
+</script>
+</body>
+</html>
