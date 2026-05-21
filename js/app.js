@@ -605,6 +605,8 @@ function getMobileMeasureBox() {
     box.style.fontSize = (mobFontSize || 17) + 'px';
     box.style.overflow = 'hidden';
     box.style.boxSizing = 'border-box';
+    // CSS 변수 대신 JS로 직접 패딩 설정 (변수 적용 타이밍 문제 방지)
+    box.style.padding = `${m.top}px ${m.side}px ${m.bottom}px`;
     return box;
 }
 
