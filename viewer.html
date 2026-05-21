@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;500;700&family=Noto+Sans+KR:wght@300;400;500;700&family=Song+Myung&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="style.css">
     <style>
         html, body {
             height: 100%;
@@ -27,10 +27,15 @@
             border-bottom: 0.5px solid var(--border);
             display: flex;
             align-items: center;
-            padding: 0 20px;
+            padding: 0 88px 0 80px;
             gap: 12px;
             z-index: 100;
+            transform: translateY(-110%);
+            transition: transform 0.25s ease;
         }
+        #topbar.visible { transform: translateY(0); }
+        /* 상단바 숨겼을 때 뷰어 스테이지 위로 올라가게 */
+        body.ui-hidden #viewer-stage { top: 0; }
         .tb-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
         .tb-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
@@ -38,7 +43,7 @@
             width: 34px; height: 34px;
             border: none; background: none; cursor: pointer;
             border-radius: 8px;
-            color: var(--ink2);
+            color: var(--ink3);
             font-size: 15px;
             display: flex; align-items: center; justify-content: center;
             transition: background 0.15s, color 0.15s;
@@ -53,7 +58,7 @@
         }
         .tb-book-name {
             font-family: var(--serif);
-            font-size: 13px;
+            font-size: 15px;
             font-weight: 700;
             color: var(--ink);
             white-space: nowrap;
@@ -62,7 +67,7 @@
         }
         .tb-chapter-name {
             font-family: var(--sans);
-            font-size: 11px;
+            font-size: 13px;
             color: var(--ink3);
             white-space: nowrap;
             overflow: hidden;
@@ -87,7 +92,8 @@
             background: none;
             cursor: pointer;
             font-family: var(--sans);
-            font-size: 12px;
+            font-size: 13px;
+            font-weight: 700;
             color: var(--ink2);
             transition: all 0.15s;
             white-space: nowrap;
@@ -107,7 +113,8 @@
             background: none;
             cursor: pointer;
             font-family: var(--sans);
-            font-size: 12px;
+            font-size: 13px;
+            font-weight: 700;
             color: var(--ink2);
             transition: all 0.15s;
         }
@@ -138,13 +145,9 @@
         /* 책 몸체 */
         .spread-book {
             display: flex;
-            height: calc(100% - 48px);
-            max-height: 900px;
-            width: calc(100% - 120px);
-            max-width: 1200px;
-            background: var(--paper);
-            box-shadow: 0 20px 60px -10px rgba(0,0,0,0.22), 0 6px 20px -4px rgba(0,0,0,0.12);
-            border-radius: 4px 4px 2px 2px;
+            height: 100%;
+            width: 100%;
+            background: var(--bg);
             overflow: hidden;
             position: relative;
         }
@@ -153,10 +156,10 @@
         .spread-book::after {
             content: '';
             position: absolute;
-            top: 0; bottom: 0;
+            top: 40px; bottom: 40px;
             left: 50%;
-            width: 1px;
-            background: linear-gradient(to bottom, var(--border), rgba(221,213,192,0.3));
+            width: 0.5px;
+            background: var(--border);
             z-index: 10;
             pointer-events: none;
         }
@@ -167,16 +170,16 @@
             height: 100%;
             overflow: hidden;
             position: relative;
-            background: var(--paper);
+            background: var(--bg);
         }
         .spread-page-content {
             width: 100%;
             height: 100%;
-            padding: 52px 56px 52px 52px;
+            padding: 44px 72px 44px 80px;
             overflow: hidden;
         }
         .spread-page:last-child .spread-page-content {
-            padding: 52px 52px 52px 56px;
+            padding: 44px 80px 44px 72px;
         }
         .spread-page-content .prose {
             font-size: 17px;
@@ -224,23 +227,23 @@
             position: absolute;
             top: 50%;
             transform: translateY(-50%);
-            width: 44px; height: 72px;
+            width: 36px; height: 64px;
             border: none;
-            background: rgba(253,250,243,0.9);
+            background: rgba(232,224,208,0.6);
             border: 0.5px solid var(--border);
             border-radius: 8px;
             cursor: pointer;
-            color: var(--ink2);
+            color: var(--ink3);
             font-size: 18px;
             display: flex; align-items: center; justify-content: center;
             transition: all 0.15s;
-            backdrop-filter: blur(4px);
+            
             z-index: 20;
         }
-        .spread-arrow:hover { background: var(--paper); color: var(--accent); border-color: var(--accent); }
-        .spread-arrow:disabled { opacity: 0.2; pointer-events: none; }
-        #arrow-prev { left: 20px; }
-        #arrow-next { right: 20px; }
+        .spread-arrow:hover { background: var(--border); color: var(--accent); border-color: var(--accent); }
+        .spread-arrow:disabled { opacity: 0.15; pointer-events: none; }
+        #arrow-prev { left: 16px; }
+        #arrow-next { right: 16px; }
 
         /* 진행 바 */
         #spread-progress {
@@ -339,7 +342,7 @@
             cursor: pointer;
             font-family: var(--sans);
             font-size: 13px;
-            color: var(--ink2);
+            color: var(--ink3);
             text-decoration: none;
             transition: all 0.15s;
         }
@@ -481,7 +484,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 <script src="https://www.youtube.com/iframe_api"></script>
-<script src="js/app.js"></script>
+<script src="app.js"></script>
 <script>
 /* ════════════════════════════════════════════
    상태
@@ -529,11 +532,46 @@ window.onload = async function() {
     loadChapter(currentChIdx);
     hideLoading();
 
+    // 토글 UI 초기: 처음엔 숨김, 1.2초 후 자동으로 한 번 보여줬다 숨김
+    setTimeout(() => {
+        showUI();
+        setTimeout(hideUI, 2000);
+    }, 800);
+
     // 창 크기 변경 시 재분할
     window.addEventListener('resize', debounce(() => {
         if (viewMode === 'spread') buildSpreadPages();
     }, 300));
 };
+
+/* ════════════════════════════════════════════
+   UI 토글 (상단 바 숨김/표시)
+════════════════════════════════════════════ */
+let uiVisible = false;
+let uiHideTimer = null;
+
+function showUI() {
+    uiVisible = true;
+    document.getElementById('topbar').classList.add('visible');
+    document.body.classList.remove('ui-hidden');
+}
+
+function hideUI() {
+    uiVisible = false;
+    document.getElementById('topbar').classList.remove('visible');
+    document.body.classList.add('ui-hidden');
+}
+
+function toggleUI() {
+    if (uiVisible) {
+        hideUI();
+    } else {
+        showUI();
+        // 3초 후 자동 숨김
+        clearTimeout(uiHideTimer);
+        uiHideTimer = setTimeout(hideUI, 3000);
+    }
+}
 
 function hideLoading() {
     const ov = document.getElementById('loading-overlay');
@@ -797,6 +835,16 @@ document.addEventListener('keydown', e => {
         if (e.key === 'ArrowRight' || e.key === 'ArrowDown') spreadGo(1);
         if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') spreadGo(-1);
     }
+});
+
+// 클릭으로 UI 토글 (버튼/링크 제외)
+document.getElementById('spread-viewer').addEventListener('click', e => {
+    if (e.target.closest('button, a, .music-link')) return;
+    toggleUI();
+});
+document.getElementById('scroll-viewer').addEventListener('click', e => {
+    if (e.target.closest('button, a, .music-link')) return;
+    toggleUI();
 });
 
 // 마우스휠로 넘기기 (가로 모드)
