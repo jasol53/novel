@@ -332,6 +332,7 @@ function renderChapterList() {
     book.coverUrlStandard || book.coverUrlTablet || book.coverUrlWebnovel || ''
     );
     const coverImg = document.getElementById('book-cover');
+    console.log(coverUrl);
     if (coverUrl) {
         coverImg.src = coverUrl;
         coverImg.alt = book.title;
