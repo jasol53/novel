@@ -32,7 +32,7 @@
             transition: transform 0.25s ease;
         }
         #topbar.visible { transform: translateY(0); }
-        body.ui-hidden #viewer-stage { top: 0; }
+        /* viewer-stage 는 항상 top:52px 고정 */
 
         /* 좌측 절반 — 목차+제목 */
         .tb-left {
@@ -117,7 +117,7 @@
             position: fixed;
             top: 52px; left: 0; right: 0; bottom: 0;
             overflow: hidden;
-            transition: top 0.25s ease;
+
         }
 
         /* ════════════════════════════════
@@ -300,6 +300,24 @@
             animation: spin 0.8s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* 진행 프로그레스바 */
+        #spread-prog-wrap {
+            position: fixed;
+            top: 52px;
+            left: 0; right: 0;
+            height: 2px;
+            background: var(--border);
+            z-index: 101;
+            /* topbar와 함께 위아래로 움직임 */
+
+        }
+        #spread-prog-fill {
+            height: 100%;
+            background: var(--accent);
+            transition: width 0.3s ease;
+            width: 0%;
+        }
     </style>
 </head>
 <body>
@@ -333,6 +351,11 @@
             다음화 <i class="fa-solid fa-chevron-right" style="font-size:10px;"></i>
         </button>
     </div>
+</div>
+
+<!-- 진행 프로그레스바 — topbar와 같이 움직이되 topbar 숨어도 남음 -->
+<div id="spread-prog-wrap">
+    <div id="spread-prog-fill"></div>
 </div>
 
 <!-- 뷰어 무대 -->
@@ -444,11 +467,15 @@ function showUI() {
     uiVisible = true;
     document.getElementById('topbar').classList.add('visible');
     document.body.classList.remove('ui-hidden');
+    // 프로그레스바: topbar 아래로 내려옴
+    document.getElementById('spread-prog-wrap').style.top = '52px';
 }
 function hideUI() {
     uiVisible = false;
     document.getElementById('topbar').classList.remove('visible');
     document.body.classList.add('ui-hidden');
+    // 프로그레스바: topbar는 숨겨지지만 프로그레스바는 top:0 에 고정
+    document.getElementById('spread-prog-wrap').style.top = '0px';
 }
 function toggleUI() {
     if (uiVisible) { hideUI(); }
@@ -599,6 +626,7 @@ function renderSpreadPosition() {
     // 진행 바
     const pct = spreadTotalSpreads > 1 ? (spreadCurSpread / (spreadTotalSpreads - 1)) * 100 : 100;
     document.getElementById('spread-progress-fill').style.width = pct + '%';
+    document.getElementById('spread-prog-fill').style.width = pct + '%';
 }
 
 function spreadGo(dir) {
@@ -621,15 +649,7 @@ document.addEventListener('keydown', e => {
     }
 });
 
-// 마우스휠
-let wheelCooldown = false;
-document.getElementById('spread-viewer').addEventListener('wheel', e => {
-    if (viewMode !== 'spread' || wheelCooldown) return;
-    wheelCooldown = true;
-    setTimeout(() => wheelCooldown = false, 500);
-    if (e.deltaY > 0 || e.deltaX > 0) spreadGo(1);
-    else spreadGo(-1);
-}, { passive: true });
+// 마우스휠 넘김 없음
 
 /* ════ 세로 모드 ════ */
 function buildScrollView() {
