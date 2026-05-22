@@ -350,3 +350,21 @@ html, body {
 .joonam-toast.show { opacity: 1; transform: translateY(0); }
 .joonam-toast.error { background: #b94040; }
 .joonam-toast.info { background: #4a6fa5; }
+
+/* ════════════════════════════════
+   모바일 전용
+════════════════════════════════ */
+@media (max-width: 767px) {
+    .prose p {
+        text-indent: 0 !important;
+        text-align: left !important;
+    }
+    .prose p.drop::first-letter {
+        float: none;
+        font-size: 1em;
+        line-height: inherit;
+        margin: 0;
+        color: inherit;
+        font-weight: inherit;
+    }
+}
