@@ -82,7 +82,7 @@ function convertImageUrl(url) {
 /* ── 텍스트 포맷 (산문 → HTML) ── */
 function sanitizeAndFormatBold(text) {
     const bTags = [];
-    text = text.replace(/<b>([\s\S]*?)<\/b>/g, (_, inner) => { bTags.push(`<strong>${inner}</strong>`); return `\x00B${bTags.length - 1}\x00`; });
+    text = text.replace(/<b>([\s\S]*?)<\/b>/g, (_, inner) => { bTags.push(`<div class="b-impact">${inner}</div>`); return `\x00B${bTags.length - 1}\x00`; });
     text = text.replace(/<strong>([\s\S]*?)<\/strong>/g, (_, inner) => { bTags.push(`<strong>${inner}</strong>`); return `\x00B${bTags.length - 1}\x00`; });
     text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     text = text.replace(/\*\*([\s\S]*?)\*\*/g, '<strong>$1</strong>');
@@ -102,10 +102,11 @@ function parseSpecialBlocks(text) {
             if (ci !== -1) {
                 const sender = line.substring(0, ci).trim();
                 const msg = line.substring(ci + 1).trim();
-                const cls = sender === '준환' ? 'chat-right' : 'chat-left';
-                return `<div class="chat-line ${cls}"><span class="chat-sender">${sender}</span>: ${msg}</div>`;
+                const isJunhwan = sender === '준환';
+                const cls = isJunhwan ? 'chat-right chat-junhwan' : 'chat-left';
+                return `<div class="chat-line ${cls}"><span class="chat-sender">${sender}</span><span class="chat-msg">${msg}</span></div>`;
             }
-            return `<div class="chat-line chat-left">${line.trim()}</div>`;
+            return `<div class="chat-line chat-left"><span class="chat-msg">${line.trim()}</span></div>`;
         }).join('');
         return `\n<div class="chat-block">${lines}</div>\n`;
     });
@@ -115,11 +116,11 @@ function parseSpecialBlocks(text) {
     });
     text = text.replace(/\[music=(.*?)\](.*?)\[\/music\]/g, (_, link, title) => {
         const clean = link.trim().replace(/"/g, '&quot;');
-        return `\n<div class="music-block"><a onclick="togglePlayMusic('${clean}', this)" class="music-link" data-music-url="${clean}"><i class="fa-solid fa-compact-disc"></i> <span>${title.trim()}</span></a></div>\n`;
+        return `\n<div class="music-block music-center"><a onclick="togglePlayMusic('${clean}', this)" class="music-link" data-music-url="${clean}"><i class="fa-solid fa-compact-disc"></i> <span>${title.trim()}</span></a></div>\n`;
     });
     text = text.replace(/\[autoplay=(.*?)\](.*?)\[\/autoplay\]/g, (_, link, title) => {
         const clean = link.trim().replace(/"/g, '&quot;');
-        return `\n<div class="music-block music-autoplay"><a onclick="togglePlayMusic('${clean}', this)" class="music-link" data-autoplay="true" data-music-url="${clean}"><i class="fa-solid fa-compact-disc"></i> <span>${title.trim()}</span></a></div>\n`;
+        return `\n<div class="music-block music-autoplay music-center"><a onclick="togglePlayMusic('${clean}', this)" class="music-link" data-autoplay="true" data-music-url="${clean}"><i class="fa-solid fa-compact-disc"></i> <span>${title.trim()}</span></a></div>\n`;
     });
     text = text.replace(/\[image=(.*?)\]([\s\S]*?)\[\/image\]/g, (_, link, cap) => {
         const clean = convertImageUrl(link.trim());
