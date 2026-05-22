@@ -326,6 +326,73 @@
             animation: spin 0.8s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+        /* ── 화 이동 카운트 팝업 ── */
+        #chapter-popup {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 300;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #chapter-popup-box {
+            background: var(--paper);
+            border-radius: 20px;
+            padding: 32px 28px 24px;
+            width: min(320px, 88vw);
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        }
+        #chapter-popup-msg {
+            font-family: var(--serif);
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--ink);
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+        #chapter-popup-count {
+            font-family: var(--sans);
+            font-size: 36px;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 24px;
+            min-height: 44px;
+        }
+        #chapter-popup-btns {
+            display: flex;
+            gap: 10px;
+        }
+        #chapter-popup-cancel {
+            flex: 1;
+            padding: 12px 0;
+            border: 0.5px solid var(--border);
+            border-radius: 12px;
+            background: none;
+            font-family: var(--sans);
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--ink2);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        #chapter-popup-cancel:hover { background: var(--border); }
+        #chapter-popup-confirm {
+            flex: 1;
+            padding: 12px 0;
+            border: none;
+            border-radius: 12px;
+            background: var(--accent);
+            font-family: var(--sans);
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--paper);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        #chapter-popup-confirm:hover { background: #7a5234; }
+
 
         /* 진행 프로그레스바 */
         #spread-prog-wrap {
@@ -370,10 +437,10 @@
             <span id="view-mode-label">세로</span>
         </button>
         <div class="tb-sep"></div>
-        <button class="tb-nav-btn" id="btn-prev-ch" onclick="goChapter(-1)" disabled>
+        <button class="tb-nav-btn" id="btn-prev-ch" onclick="showChapterPopup(-1)" disabled>
             <i class="fa-solid fa-chevron-left" style="font-size:10px;"></i> 이전화
         </button>
-        <button class="tb-nav-btn" id="btn-next-ch" onclick="goChapter(1)">
+        <button class="tb-nav-btn" id="btn-next-ch" onclick="showChapterPopup(1)">
             다음화 <i class="fa-solid fa-chevron-right" style="font-size:10px;"></i>
         </button>
     </div>
@@ -409,11 +476,11 @@
             </div>
             <div class="scroll-prose" id="scroll-prose"></div>
             <div class="scroll-nav-footer">
-                <button class="scroll-nav-btn" id="scroll-prev-btn" onclick="goChapter(-1)">
+                <button class="scroll-nav-btn" id="scroll-prev-btn" onclick="showChapterPopup(-1)">
                     <i class="fa-solid fa-chevron-left" style="font-size:10px;"></i> 이전화
                 </button>
                 <div class="scroll-chapter-end" id="scroll-chapter-end"></div>
-                <button class="scroll-nav-btn" id="scroll-next-btn" onclick="goChapter(1)">
+                <button class="scroll-nav-btn" id="scroll-next-btn" onclick="showChapterPopup(1)">
                     다음화 <i class="fa-solid fa-chevron-right" style="font-size:10px;"></i>
                 </button>
             </div>
@@ -684,10 +751,10 @@ function spreadGo(dir) {
     if (next >= 0 && next < spreadTotalSpreads) {
         spreadCurSpread = next;
         renderSpreadPosition();
-    } else if (dir > 0 && currentChIdx < bookData.chapters.length - 1) {
-        goChapter(1);
-    } else if (dir < 0 && currentChIdx > 0) {
-        goChapter(-1);
+    } else if (dir > 0) {
+        showChapterPopup(1);
+    } else if (dir < 0) {
+        showChapterPopup(-1);
     }
 }
 
@@ -775,6 +842,54 @@ function togglePlayMusic(url, btn) {
     }
 }
 
+
+/* ════════════════════════════════════════════
+   화 이동 카운트 팝업
+════════════════════════════════════════════ */
+let popupTimer = null;
+let popupDir = 0; // -1: 이전화, 1: 다음화
+
+function showChapterPopup(dir) {
+    popupDir = dir;
+    const msg = dir > 0
+        ? (currentChIdx < bookData.chapters.length - 1
+            ? `제 ${currentChIdx + 2}화로 이동합니다.`
+            : '마지막 화입니다.')
+        : (currentChIdx > 0
+            ? `제 ${currentChIdx}화로 이동합니다.`
+            : '첫 번째 화입니다.');
+
+    // 이동 불가면 팝업 없이 리턴
+    if ((dir > 0 && currentChIdx >= bookData.chapters.length - 1) ||
+        (dir < 0 && currentChIdx <= 0)) return;
+
+    document.getElementById('chapter-popup-msg').textContent = msg;
+    document.getElementById('chapter-popup').style.display = 'flex';
+
+    let count = 3;
+    document.getElementById('chapter-popup-count').textContent = count;
+    clearInterval(popupTimer);
+    popupTimer = setInterval(() => {
+        count--;
+        if (count <= 0) {
+            clearInterval(popupTimer);
+            confirmChapterPopup();
+        } else {
+            document.getElementById('chapter-popup-count').textContent = count;
+        }
+    }, 1000);
+}
+
+function confirmChapterPopup() {
+    clearInterval(popupTimer);
+    document.getElementById('chapter-popup').style.display = 'none';
+    goChapter(popupDir);
+}
+
+function closeChapterPopup() {
+    clearInterval(popupTimer);
+    document.getElementById('chapter-popup').style.display = 'none';
+}
 function onYouTubeIframeAPIReady() {
     ytAudioPlayer = new YT.Player('yt-audio-player', {
         height: '0', width: '0', videoId: '',
