@@ -419,7 +419,8 @@
 let bookData = null;
 let bookId = '';
 let currentChIdx = 0;
-let viewMode = 'spread';
+const IS_MOBILE = window.innerWidth < 768 || navigator.maxTouchPoints > 0;
+let viewMode = IS_MOBILE ? 'scroll' : 'spread';
 
 /* 가로 모드: 스프레드(2쪽) 단위 페이지네이션 */
 let spreadCurSpread = 0;   // 현재 스프레드 인덱스
@@ -456,6 +457,15 @@ window.onload = async function() {
     }
 
     currentChIdx = Math.max(0, Math.min(currentChIdx, bookData.chapters.length - 1));
+    // 모바일이면 초기 UI 세로 모드로 설정
+    if (IS_MOBILE) {
+        document.getElementById('spread-viewer').style.display = 'none';
+        document.getElementById('scroll-viewer').style.display = 'block';
+        document.getElementById('view-mode-icon').className = 'fa-solid fa-book-open';
+        document.getElementById('view-mode-label').textContent = '가로';
+        document.getElementById('view-mode-btn').classList.add('active');
+    }
+
     updateTopbar();
     loadChapter(currentChIdx);
     hideLoading();
