@@ -197,6 +197,22 @@
         }
         #spread-columns .prose p:first-child { text-indent: 0; }
 
+        /* 모바일: 들여쓰기/양쪽정렬 제거 */
+        @media (max-width: 767px) {
+            .prose p {
+                text-indent: 0 !important;
+                text-align: left !important;
+            }
+            .prose p.drop::first-letter {
+                float: none !important;
+                font-size: 1em !important;
+                line-height: inherit !important;
+                margin: 0 !important;
+                color: inherit !important;
+                font-weight: inherit !important;
+            }
+        }
+
         /* 챕터 헤더 */
         .ch-header-spread {
             margin-bottom: 36px;
