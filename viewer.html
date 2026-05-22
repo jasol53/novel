@@ -415,6 +415,19 @@
 </head>
 <body>
 
+
+<!-- 화 이동 카운트 팝업 -->
+<div id="chapter-popup" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;align-items:center;justify-content:center;">
+    <div id="chapter-popup-box" style="background:var(--paper);border-radius:20px;padding:32px 28px 24px;width:min(320px,88vw);text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+        <div id="chapter-popup-msg" style="font-family:var(--serif);font-size:15px;font-weight:700;color:var(--ink);margin-bottom:16px;line-height:1.5;"></div>
+        <div id="chapter-popup-count" style="font-family:var(--sans);font-size:36px;font-weight:700;color:var(--accent);margin-bottom:24px;min-height:44px;"></div>
+        <div style="display:flex;gap:10px;">
+            <button onclick="closeChapterPopup()" style="flex:1;padding:12px 0;border:0.5px solid var(--border);border-radius:12px;background:none;font-family:var(--sans);font-size:14px;font-weight:700;color:var(--ink2);cursor:pointer;">취소</button>
+            <button onclick="confirmChapterPopup()" style="flex:1;padding:12px 0;border:none;border-radius:12px;background:var(--accent);font-family:var(--sans);font-size:14px;font-weight:700;color:var(--paper);cursor:pointer;">확인</button>
+        </div>
+    </div>
+</div>
+
 <div id="loading-overlay">
     <div class="loading-spinner"></div>
     <span>불러오는 중...</span>
@@ -437,10 +450,10 @@
             <span id="view-mode-label">세로</span>
         </button>
         <div class="tb-sep"></div>
-        <button class="tb-nav-btn" id="btn-prev-ch" onclick="showChapterPopup(-1)" disabled>
+        <button class="tb-nav-btn" id="btn-prev-ch" onclick="goChapter(-1)" disabled>
             <i class="fa-solid fa-chevron-left" style="font-size:10px;"></i> 이전화
         </button>
-        <button class="tb-nav-btn" id="btn-next-ch" onclick="showChapterPopup(1)">
+        <button class="tb-nav-btn" id="btn-next-ch" onclick="goChapter(1)">
             다음화 <i class="fa-solid fa-chevron-right" style="font-size:10px;"></i>
         </button>
     </div>
@@ -476,11 +489,11 @@
             </div>
             <div class="scroll-prose" id="scroll-prose"></div>
             <div class="scroll-nav-footer">
-                <button class="scroll-nav-btn" id="scroll-prev-btn" onclick="showChapterPopup(-1)">
+                <button class="scroll-nav-btn" id="scroll-prev-btn" onclick="goChapter(-1)">
                     <i class="fa-solid fa-chevron-left" style="font-size:10px;"></i> 이전화
                 </button>
                 <div class="scroll-chapter-end" id="scroll-chapter-end"></div>
-                <button class="scroll-nav-btn" id="scroll-next-btn" onclick="showChapterPopup(1)">
+                <button class="scroll-nav-btn" id="scroll-next-btn" onclick="goChapter(1)">
                     다음화 <i class="fa-solid fa-chevron-right" style="font-size:10px;"></i>
                 </button>
             </div>
